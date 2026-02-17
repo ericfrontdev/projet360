@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, Settings } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -63,17 +63,9 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="border-t py-4">
-        <nav className="space-y-1 px-3">
-          <NavItem
-            href="/settings"
-            icon={<Settings size={18} />}
-            label="Settings"
-            active={pathname === "/settings"}
-          />
-          <LogoutButton />
-        </nav>
+      {/* Footer - Logout only */}
+      <div className="border-t py-4 px-3">
+        <LogoutButton />
       </div>
     </aside>
   );
