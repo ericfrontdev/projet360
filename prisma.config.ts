@@ -11,7 +11,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"]!,
-    directUrl: process.env["DIRECT_URL"]!,
+    // Use DIRECT_URL for Prisma CLI (migrations, introspection)
+    // This is the direct connection to the database (port 5432)
+    url: process.env["DIRECT_URL"]!,
   },
 });
