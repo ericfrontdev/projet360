@@ -1,4 +1,4 @@
-import { Plus, Search, Command, HelpCircle, Bell } from "lucide-react";
+import { Search, Command, HelpCircle, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -6,13 +6,8 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
 export function Header() {
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-4">
-      {/* Left side */}
+      {/* Left side - Search only */}
       <div className="flex items-center gap-4">
-        <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus size={16} />
-          <span>Create Story</span>
-        </Button>
-
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
