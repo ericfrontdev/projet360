@@ -18,19 +18,30 @@ import { useProjectsStore } from "@/stores/projects";
 
 export function CreateProjectDialog() {
   const [open, setOpen] = useState(false);
+  
+  // Reset form error when dialog opens/closes
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      setFormError(null);
+      setName("");
+      setDescription("");
+    }
+  };
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   
   const createProject = useProjectsStore((state) => state.createProject);
+  const storeError = useProjectsStore((state) => state.error);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
     
     if (!name.trim()) {
-      setError("Project name is required");
+      setFormError("Project name is required");
       return;
     }
 
@@ -46,12 +57,12 @@ export function CreateProjectDialog() {
       setDescription("");
       setOpen(false);
     } else {
-      setError("Failed to create project");
+      setFormError(storeError || "Failed to create project");
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon" className="h-5 w-5">
           <Plus size={14} />
@@ -85,8 +96,8 @@ export function CreateProjectDialog() {
                 placeholder="Brief description..."
               />
             </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
+            {formError && (
+              <p className="text-sm text-destructive">{formError}</p>
             )}
           </div>
           <DialogFooter>

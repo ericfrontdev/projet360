@@ -33,10 +33,29 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && 
-      !request.nextUrl.pathname.startsWith("/login") && 
-      !request.nextUrl.pathname.startsWith("/register") &&
-      !request.nextUrl.pathname.startsWith("/auth/callback")) {
+  // Public paths that don't require auth
+  const isPublicPath = 
+    request.nextUrl.pathname.startsWith("/login") || 
+    request.nextUrl.pathname.startsWith("/register") ||
+    request.nextUrl.pathname.startsWith("/auth/callback");
+
+  if (isPublicPath) {
+    return supabaseResponse;
+  }
+
+  // API routes - return 401 instead of redirect
+  if (request.nextUrl.pathname.startsWith("/api")) {
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    return supabaseResponse;
+  }
+
+  // Page routes - redirect to login if not authenticated
+  if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

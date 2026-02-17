@@ -53,15 +53,24 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create project");
+        let errorMessage = "Failed to create project";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If JSON parsing fails, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
       
       const project = await response.json();
-      set({ projects: [project, ...get().projects] });
+      set({ projects: [project, ...get().projects], error: null });
       return project;
     } catch (error) {
-      set({ error: (error as Error).message });
+      const message = (error as Error).message;
+      set({ error: message });
+      console.error("Create project error:", message);
       return null;
     }
   },
