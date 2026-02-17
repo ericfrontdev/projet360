@@ -1,8 +1,8 @@
 "use client";
 
-import { Plus, Folder, FileText } from "lucide-react";
+import { Folder, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { CreateStoryDialog } from "./CreateStoryDialog";
 
 interface ProjectInfo {
   name: string;
@@ -18,9 +18,16 @@ interface Story {
 interface DescriptionTabProps {
   project: ProjectInfo;
   stories: Story[];
+  projectId: string;
+  onStoryCreated?: () => void;
 }
 
-export function DescriptionTab({ project, stories }: DescriptionTabProps) {
+export function DescriptionTab({
+  project,
+  stories,
+  projectId,
+  onStoryCreated,
+}: DescriptionTabProps) {
   const inProgressStories = stories.filter((s) => s.status === "IN_PROGRESS");
   const todoStories = stories.filter((s) => s.status === "TODO");
   const backlogStories = stories.filter((s) => s.status === "BACKLOG");
@@ -60,9 +67,11 @@ export function DescriptionTab({ project, stories }: DescriptionTabProps) {
             <FileText size={18} />
             Stories
           </CardTitle>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Plus size={16} />
-          </Button>
+          <CreateStoryDialog
+            projectId={projectId}
+            variant="icon"
+            onSuccess={onStoryCreated}
+          />
         </CardHeader>
         <CardContent className="space-y-4">
           {/* In Progress */}

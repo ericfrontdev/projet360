@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
-// GET /api/projects/[id]/stories - Get stories for a project
-export async function GET(
-  request: Request,
+// POST /api/projects/[id]/stories - Create new story
+export async function POST(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
@@ -19,6 +19,16 @@ export async function GET(
   const { id: projectId } = await params;
 
   try {
+    const body = await request.json();
+    const { title, description, status = "BACKLOG" } = body;
+
+    if (!title || typeof title !== "string" || title.trim().length === 0) {
+      return NextResponse.json(
+        { error: "Story title is required" },
+        { status: 400 }
+      );
+    }
+
     // Verify project exists and belongs to user
     const project = await prisma.project.findFirst({
       where: { id: projectId, ownerId: user.id },
@@ -31,34 +41,36 @@ export async function GET(
       );
     }
 
-    const stories = await prisma.story.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        tasks: {
-          select: { id: true, status: true },
+    // Ensure user exists in database
+    const existingUser = await prisma.user.findUnique({
+      where: { id: user.id },
+    });
+
+    if (!existingUser) {
+      await prisma.user.create({
+        data: {
+          id: user.id,
+          email: user.email!,
+          name: user.user_metadata?.name || user.email!.split("@")[0],
         },
-        author: {
-          select: { name: true },
-        },
+      });
+    }
+
+    const story = await prisma.story.create({
+      data: {
+        title: title.trim(),
+        description: description?.trim() || null,
+        status,
+        projectId,
+        authorId: user.id,
       },
     });
 
-    const formattedStories = stories.map((story) => ({
-      id: story.id,
-      title: story.title,
-      description: story.description,
-      status: story.status,
-      subtasks: story.tasks.length,
-      completedSubtasks: story.tasks.filter((t) => t.status === "DONE").length,
-      author: story.author.name || "Unknown",
-    }));
-
-    return NextResponse.json(formattedStories);
+    return NextResponse.json(story, { status: 201 });
   } catch (error) {
-    console.error("Error fetching stories:", error);
+    console.error("Error creating story:", error);
     return NextResponse.json(
-      { error: "Failed to fetch stories" },
+      { error: "Failed to create story" },
       { status: 500 }
     );
   }
