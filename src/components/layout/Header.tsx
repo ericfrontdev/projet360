@@ -1,6 +1,7 @@
 import { Plus, Search, Command, HelpCircle, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 
 export function Header() {
   return (
@@ -37,6 +38,7 @@ export function Header() {
           <Bell size={18} />
           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive" />
         </Button>
+        <LogoutButton />
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
           E
         </div>
