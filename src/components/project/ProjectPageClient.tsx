@@ -5,6 +5,7 @@ import { CreateStoryDialog } from "./CreateStoryDialog";
 import { DescriptionTab } from "./DescriptionTab";
 import { BacklogTab } from "./BacklogTab";
 import { BoardTab } from "./BoardTab";
+import { ArchivedTab } from "./ArchivedTab";
 import { useRouter } from "next/navigation";
 import type { Story } from "./kanban/types";
 
@@ -44,6 +45,7 @@ export function ProjectPageClient({ project, stories }: ProjectPageClientProps) 
           <TabsTrigger value="description">Description</TabsTrigger>
           <TabsTrigger value="backlog">Backlog</TabsTrigger>
           <TabsTrigger value="board">Tableau</TabsTrigger>
+          <TabsTrigger value="archived">Archivées</TabsTrigger>
         </TabsList>
 
         <TabsContent value="description" className="mt-6">
@@ -61,6 +63,10 @@ export function ProjectPageClient({ project, stories }: ProjectPageClientProps) 
 
         <TabsContent value="board" className="mt-6">
           <BoardTab stories={stories} projectId={project.id} />
+        </TabsContent>
+
+        <TabsContent value="archived" className="mt-6">
+          <ArchivedTab stories={stories} projectId={project.id} />
         </TabsContent>
       </Tabs>
     </div>
