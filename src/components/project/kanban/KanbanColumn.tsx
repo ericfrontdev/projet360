@@ -3,6 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils";
+import { useKanbanStore } from "@/stores/kanban";
 import { KanbanCard } from "./KanbanCard";
 import type { ColumnProps } from "./types";
 
@@ -22,6 +23,7 @@ export function KanbanColumn({
   onTaskAssigneeChange,
   onTaskStatusChange,
 }: ColumnProps) {
+  const projectId = useKanbanStore((state) => state.currentProjectId);
   const { setNodeRef, isOver } = useSortable({
     id,
     data: { type: "Column" },

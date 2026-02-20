@@ -43,6 +43,8 @@ export function SubtaskCard({
     onStatusChange?.(storyId, task.id, newStatus);
   }
 
+
+
   return (
     <Card className="border bg-card/50 shadow-none hover:bg-card transition-colors py-0 gap-0">
       <CardContent className="p-0 px-3 py-2.5">
@@ -58,12 +60,12 @@ export function SubtaskCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5 p-0 -mr-1 cursor-pointer"
+                className="h-7 w-7 p-0 -mr-1 cursor-pointer"
                 onClick={(e) => e.stopPropagation()}
               >
                 {task.assignee ? (
-                  <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center text-[9px] font-medium text-primary-foreground">
-                    {getInitials(task.assignee.name || task.assignee.email).slice(0, 1)}
+                  <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-[9px] font-medium text-primary-foreground">
+                    {getInitials(task.assignee.name || task.assignee.email)}
                   </div>
                 ) : (
                   <UserPlus className="h-4 w-4 text-muted-foreground" />
@@ -93,8 +95,8 @@ export function SubtaskCard({
                     setIsAssignOpen(false);
                   }}
                 >
-                  <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-medium">
-                    {getInitials(user.name || user.email).slice(0, 1)}
+                  <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-medium">
+                    {getInitials(user.name || user.email)}
                   </div>
                   <span className="truncate">{user.name || user.email}</span>
                   {task.assignee?.email === user.email && <Check className="h-3 w-3 ml-auto" />}

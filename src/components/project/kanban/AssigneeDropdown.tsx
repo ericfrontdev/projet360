@@ -45,12 +45,12 @@ export function AssigneeDropdown({
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 p-0 cursor-pointer"
+          className="h-7 w-7 p-0 cursor-pointer"
           onClick={(e) => e.stopPropagation()}
         >
           {assignee ? (
-            <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center text-[8px] font-medium text-primary-foreground">
-              {getInitials(assignee.name || assignee.email).slice(0, 1)}
+            <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-[9px] font-medium text-primary-foreground">
+              {getInitials(assignee.name || assignee.email)}
             </div>
           ) : (
             <UserPlus className="h-3.5 w-3.5 text-muted-foreground" />
@@ -97,8 +97,8 @@ export function AssigneeDropdown({
               handleSelect(user.id);
             }}
           >
-            <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-medium">
-              {getInitials(user.name || user.email).slice(0, 1)}
+            <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-medium">
+              {getInitials(user.name || user.email)}
             </div>
             <span className="truncate">{user.name || user.email}</span>
             {assigneeId === user.id && <Check className="h-3 w-3 ml-auto" />}

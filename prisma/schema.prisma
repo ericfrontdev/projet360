@@ -12,6 +12,12 @@ enum StoryStatus {
   IN_PROGRESS
   IN_REVIEW
   DONE
+  ARCHIVED
+}
+
+enum StoryType {
+  FEATURE
+  FIX
 }
 
 enum TaskStatus {
@@ -29,9 +35,15 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
-  projects      Project[]
-  stories       Story[]
+  ownedProjects Project[]
+  projectMembers ProjectMember[]
+  stories       Story[]     @relation("StoryAuthor")
+  assignedStories Story[]   @relation("StoryAssignee")
   tasks         Task[]
+  comments      Comment[]
+  taskComments  TaskComment[]
+  invitations   Invitation[] // Invitations envoyées par cet utilisateur
+  notifications Notification[]
   
   @@map("users")
 }
@@ -40,22 +52,83 @@ model Project {
   id          String   @id @default(uuid())
   name        String
   description String?
+  color       String?  // Couleur optionnelle pour identifier le projet
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   ownerId     String
   owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   
+  members     ProjectMember[]
   stories     Story[]
+  invitationProjects InvitationProject[]
   
   @@map("projects")
 }
 
+model ProjectMember {
+  id     String @id @default(uuid())
+  role   ProjectRole @default(MEMBER)
+  
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+enum ProjectRole {
+  ADMIN
+  MEMBER
+}
+
+model Invitation {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique @default(uuid())
+  status    InvitationStatus @default(PENDING)
+  
+  // Qui a envoyé l'invitation
+  invitedById String
+  invitedBy   User   @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  
+  // Projets auxquels l'utilisateur aura accès
+  projects  InvitationProject[]
+  
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+  acceptedAt DateTime?
+  
+  @@map("invitations")
+}
+
+model InvitationProject {
+  id String @id @default(uuid())
+  
+  invitationId String
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@unique([invitationId, projectId])
+  @@map("invitation_projects")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
 model Story {
   id          String      @id @default(uuid())
+  storyNumber Int         @default(autoincrement()) // Numéro unique par projet (FEATURE-1, FIX-1)
   title       String
   description String?
   status      StoryStatus @default(BACKLOG)
+  type        StoryType   @default(FEATURE)
   priority    Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -64,15 +137,22 @@ model Story {
   project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   
   authorId    String
-  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author      User        @relation(name: "StoryAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  
+  assigneeId  String?
+  assignee    User?       @relation(name: "StoryAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   
   tasks       Task[]
+  attachments Attachment[]
+  comments    Comment[]
   
+  @@unique([projectId, storyNumber])
   @@map("stories")
 }
 
 model Task {
   id          String    @id @default(uuid())
+  taskNumber  Int       @default(autoincrement()) // Numéro unique par story (FEATURE-1-1, FEATURE-1-2)
   title       String
   status      TaskStatus @default(TODO)
   createdAt   DateTime  @default(now())
@@ -84,5 +164,82 @@ model Task {
   assigneeId  String?
   assignee    User?     @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   
+  comments    TaskComment[]
+  
+  @@unique([storyId, taskNumber])
   @@map("tasks")
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  filename  String
+  url       String
+  size      Int
+  mimeType  String
+  createdAt DateTime @default(now())
+  
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  
+  @@map("attachments")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  data      Json?    // Métadonnées (projectId, storyId, etc.)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+  
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  PROJECT_INVITATION
+  PROJECT_ADDED
+  STORY_ASSIGNED
+  STORY_MENTION
+  COMMENT_MENTION
+  TASK_COMPLETED
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@index([storyId, createdAt])
+  @@map("comments")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@index([taskId, createdAt])
+  @@map("task_comments")
 }
