@@ -27,6 +27,11 @@ export function ProjectPageClient({ project, stories }: ProjectPageClientProps) 
     router.refresh();
   }
 
+  function handleStoryStatusChange(storyId: string, newStatus: string) {
+    // Optimistic update would go here if needed
+    router.refresh();
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -58,7 +63,11 @@ export function ProjectPageClient({ project, stories }: ProjectPageClientProps) 
         </TabsContent>
 
         <TabsContent value="backlog" className="mt-6">
-          <BacklogTab stories={stories} />
+          <BacklogTab 
+            stories={stories} 
+            projectId={project.id}
+            onStoryStatusChange={handleStoryStatusChange}
+          />
         </TabsContent>
 
         <TabsContent value="board" className="mt-6">
