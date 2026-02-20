@@ -1,14 +1,27 @@
 "use client";
 
+export interface TaskComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
+}
+
 export interface Task {
   id: string;
   taskNumber: number;
   title: string;
+  description?: string | null;
   status: "TODO" | "DONE";
   assignee?: {
     name: string | null;
     email: string;
   } | null;
+  comments?: TaskComment[];
 }
 
 export interface Story {

@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { useKanbanStore } from "@/stores/kanban";
 import { SubtaskCard } from "./SubtaskCard";
+import { SubtaskDetailDialog } from "./SubtaskDetailDialog";
 import type { Task, ProjectUser } from "./types";
 
 interface SubtasksListProps {
@@ -24,6 +27,10 @@ export function SubtasksList({
   onTaskAssigneeChange,
   onTaskStatusChange,
 }: SubtasksListProps) {
+  const projectId = useKanbanStore((state) => state.currentProjectId);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   if (isLoading) {
     return (
       <div className="px-3 py-2 text-[10px] text-muted-foreground">
@@ -40,21 +47,45 @@ export function SubtasksList({
     );
   }
 
+  function handleTaskClick(task: Task) {
+    setSelectedTask(task);
+    setDialogOpen(true);
+  }
+
   return (
-    <div className="p-2 space-y-2">
-      {tasks.map((task) => (
-        <div key={task.id} className="pl-4 border-l-2 border-muted-foreground/20">
-          <SubtaskCard 
-            task={task} 
-            storyId={storyId}
-            storyType={storyType}
-            storyNumber={storyNumber}
-            projectUsers={projectUsers}
-            onAssigneeChange={onTaskAssigneeChange}
-            onStatusChange={onTaskStatusChange}
-          />
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="p-2 space-y-2">
+        {tasks.map((task) => (
+          <div 
+            key={task.id} 
+            className="pl-4 border-l-2 border-muted-foreground/20 cursor-pointer"
+            onClick={() => handleTaskClick(task)}
+          >
+            <SubtaskCard 
+              task={task} 
+              storyId={storyId}
+              storyType={storyType}
+              storyNumber={storyNumber}
+              projectUsers={projectUsers}
+              onAssigneeChange={onTaskAssigneeChange}
+              onStatusChange={onTaskStatusChange}
+            />
+          </div>
+        ))}
+      </div>
+
+      <SubtaskDetailDialog
+        task={selectedTask}
+        storyId={storyId}
+        storyType={storyType}
+        storyNumber={storyNumber}
+        projectId={projectId || ""}
+        projectUsers={projectUsers}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onAssigneeChange={onTaskAssigneeChange}
+        onStatusChange={onTaskStatusChange}
+      />
+    </>
   );
 }

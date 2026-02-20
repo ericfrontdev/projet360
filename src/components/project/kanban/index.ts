@@ -6,3 +6,4 @@ export { AssigneeDropdown } from "./AssigneeDropdown";
 export { PriorityDropdown } from "./PriorityDropdown";
 export { SubtasksList } from "./SubtasksList";
 export { SubtaskCard } from "./SubtaskCard";
+export { SubtaskDetailDialog } from "./SubtaskDetailDialog";
