@@ -6,14 +6,7 @@ import { DescriptionTab } from "./DescriptionTab";
 import { BacklogTab } from "./BacklogTab";
 import { BoardTab } from "./BoardTab";
 import { useRouter } from "next/navigation";
-
-interface Story {
-  id: string;
-  title: string;
-  status: string;
-  subtasks: number;
-  completedSubtasks: number;
-}
+import type { Story } from "./kanban/types";
 
 interface Project {
   id: string;
@@ -67,7 +60,7 @@ export function ProjectPageClient({ project, stories }: ProjectPageClientProps) 
         </TabsContent>
 
         <TabsContent value="board" className="mt-6">
-          <BoardTab stories={stories} />
+          <BoardTab stories={stories} projectId={project.id} />
         </TabsContent>
       </Tabs>
     </div>
