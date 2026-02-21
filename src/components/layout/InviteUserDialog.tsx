@@ -68,8 +68,8 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
         const data = await response.json();
         setProjects(data);
       }
-    } catch (error) {
-      console.error("Error fetching projects:", error);
+    } catch {
+      // silently fail
     } finally {
       setIsLoading(false);
     }
@@ -121,8 +121,6 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
     setError(null);
 
     try {
-      console.log("Sending invitation request:", { emails, projectIds: selectedProjects });
-      
       const response = await fetch("/api/invitations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -132,12 +130,9 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
         }),
       });
 
-      const text = await response.text();
-      console.log("Raw response:", text);
-      
       let data;
       try {
-        data = JSON.parse(text);
+        data = await response.json();
       } catch {
         data = { error: "Réponse invalide du serveur" };
       }
@@ -145,11 +140,10 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
       if (response.ok) {
         setResults(data.results);
       } else {
-        setError(data.error || data.details || `Erreur ${response.status}`);
+        setError(data.error || `Erreur ${response.status}`);
       }
-    } catch (error: any) {
-      console.error("Error:", error);
-      setError(`Erreur: ${error?.message || "Erreur réseau"}`);
+    } catch {
+      setError("Erreur réseau");
     } finally {
       setIsSubmitting(false);
     }
@@ -160,8 +154,7 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
       await navigator.clipboard.writeText(link);
       setCopiedLink(link);
       setTimeout(() => setCopiedLink(null), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
+    } catch {
       // Fallback for older browsers
       const textarea = document.createElement("textarea");
       textarea.value = link;

@@ -64,30 +64,27 @@ export function AddMemberDialog({
         const data = await response.json();
         setExistingMembers(data.map((m: User) => m.id));
       }
-    } catch (error) {
-      console.error("Error fetching existing members:", error);
+    } catch {
+      // silently fail
     }
   }
 
   async function searchUsers() {
     if (!searchQuery.trim()) return;
-    
+
     setIsSearching(true);
     setError(null);
-    
+
     try {
-      // Search users via API
       const response = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery)}`);
       if (response.ok) {
         const data = await response.json();
-        // Filter out existing members
         const filtered = data.filter((u: User) => !existingMembers.includes(u.id));
         setUsers(filtered);
       } else {
         setError("Erreur lors de la recherche");
       }
-    } catch (error) {
-      console.error("Error searching users:", error);
+    } catch {
       setError("Erreur réseau");
     } finally {
       setIsSearching(false);
@@ -120,8 +117,7 @@ export function AddMemberDialog({
         const data = await response.json();
         setError(data.error || "Erreur lors de l'ajout");
       }
-    } catch (error) {
-      console.error("Error adding member:", error);
+    } catch {
       setError("Erreur réseau");
     } finally {
       setIsAdding(false);

@@ -43,10 +43,9 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(users);
-  } catch (error) {
-    console.error("Error searching users:", error);
+  } catch {
     return NextResponse.json(
-      { error: "Failed to search users" },
+      { error: "Échec de la recherche d'utilisateurs" },
       { status: 500 }
     );
   }
