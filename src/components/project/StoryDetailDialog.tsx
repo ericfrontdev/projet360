@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn, getInitials } from "@/lib/utils";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface TaskAssignee {
   id: string;
@@ -72,6 +73,7 @@ interface StoryDetail {
     name: string | null;
     email: string;
   } | null;
+  dueDate?: string | null;
 }
 
 interface StoryDetailDialogProps {
@@ -178,6 +180,25 @@ export function StoryDetailDialog({
       }
     } finally {
       setIsSubmittingComment(false);
+    }
+  }
+
+  async function handleDueDateChange(date: Date | null) {
+    if (!storyDetail) return;
+
+    mutateStory(
+      { ...storyDetail, dueDate: date ? date.toISOString() : null },
+      false
+    );
+
+    try {
+      await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate: date ? date.toISOString() : null }),
+      });
+    } finally {
+      mutateStory();
     }
   }
 
@@ -804,6 +825,19 @@ export function StoryDetailDialog({
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                </div>
+
+                {/* Due date */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Date d'échéance
+                  </label>
+                  <DatePicker
+                    value={storyDetail?.dueDate ? new Date(storyDetail.dueDate) : null}
+                    onChange={handleDueDateChange}
+                    placeholder="Pas de date"
+                  />
                 </div>
 
                 {/* Requester */}

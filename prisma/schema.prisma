@@ -141,7 +141,9 @@ model Story {
   
   assigneeId  String?
   assignee    User?       @relation(name: "StoryAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  
+
+  dueDate     DateTime?
+
   tasks       Task[]
   attachments Attachment[]
   comments    Comment[]

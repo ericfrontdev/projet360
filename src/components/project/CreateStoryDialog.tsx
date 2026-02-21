@@ -25,6 +25,7 @@ import { cn, getInitials } from "@/lib/utils";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import type { ProjectUser } from "@/components/project/kanban/types";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface CreateStoryDialogProps {
   projectId: string;
@@ -64,6 +65,7 @@ export function CreateStoryDialog({
   const [type, setType] = useState<"FEATURE" | "FIX">("FEATURE");
   const [priority, setPriority] = useState(2);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  const [dueDate, setDueDate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createAnother, setCreateAnother] = useState(false);
@@ -94,6 +96,7 @@ export function CreateStoryDialog({
           type,
           priority,
           assigneeId: assigneeId ?? undefined,
+          dueDate: dueDate?.toISOString() ?? undefined,
         }),
       });
 
@@ -110,6 +113,7 @@ export function CreateStoryDialog({
         setType("FEATURE");
         setPriority(2);
         setAssigneeId(null);
+        setDueDate(null);
       } else {
         // Close dialog and reset
         setTitle("");
@@ -118,6 +122,7 @@ export function CreateStoryDialog({
         setType("FEATURE");
         setPriority(2);
         setAssigneeId(null);
+        setDueDate(null);
         setOpen(false);
       }
       
@@ -136,6 +141,7 @@ export function CreateStoryDialog({
     setType("FEATURE");
     setPriority(2);
     setAssigneeId(null);
+    setDueDate(null);
     setOpen(false);
   }
 
@@ -381,9 +387,11 @@ export function CreateStoryDialog({
                     <Calendar className="h-3 w-3" />
                     Date d'échéance
                   </label>
-                  <Button variant="ghost" className="w-full justify-start h-auto py-1.5 px-2 -ml-2 font-normal text-muted-foreground" disabled>
-                    Pas de date
-                  </Button>
+                  <DatePicker
+                    value={dueDate}
+                    onChange={setDueDate}
+                    placeholder="Pas de date"
+                  />
                 </div>
               </div>
 

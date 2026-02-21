@@ -102,7 +102,7 @@ export async function POST(
   if (response) return response;
 
   try {
-    const { title, description, status = "BACKLOG", type, priority, assigneeId } = data;
+    const { title, description, status = "BACKLOG", type, priority, assigneeId, dueDate } = data;
 
     // Verify project exists and user has access (owner or member)
     const project = await prisma.project.findFirst({
@@ -161,6 +161,7 @@ export async function POST(
         ...(type !== undefined && { type }),
         ...(priority !== undefined && { priority }),
         ...(assigneeId ? { assigneeId } : {}),
+        ...(dueDate !== undefined && { dueDate: dueDate ?? null }),
         projectId,
         authorId: user.id,
       },
