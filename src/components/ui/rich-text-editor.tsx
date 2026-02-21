@@ -31,6 +31,7 @@ interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  variant?: "default" | "borderless";
   onConvertToSubtasks?: (items: string[]) => void;
 }
 
@@ -38,6 +39,7 @@ export function RichTextEditor({
   value,
   onChange,
   placeholder = "Écrivez quelque chose...",
+  variant = "default",
   onConvertToSubtasks,
 }: RichTextEditorProps) {
   const editor = useEditor({
@@ -125,10 +127,19 @@ export function RichTextEditor({
 
   const Divider = () => <div className="w-px h-4 bg-border mx-1" />;
 
+  const isBorderless = variant === "borderless";
+
   return (
-    <div className="border rounded-md bg-background focus-within:ring-1 focus-within:ring-ring">
+    <div className={cn(
+      isBorderless
+        ? ""
+        : "border rounded-md bg-background focus-within:ring-1 focus-within:ring-ring"
+    )}>
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b bg-muted/30">
+      <div className={cn(
+        "flex items-center gap-0.5 py-1.5 border-b",
+        isBorderless ? "px-0 bg-transparent" : "px-2 bg-muted/30"
+      )}>
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive("bold")}
@@ -218,10 +229,16 @@ export function RichTextEditor({
       </div>
 
       {/* Editor */}
-      <div className="relative min-h-[120px]">
+      <div className={cn(
+        "relative min-h-[120px]",
+        isBorderless && "border-b border-input focus-within:border-primary transition-colors"
+      )}>
         <EditorContent
           editor={editor}
-          className="prose prose-sm max-w-none p-4 min-h-[120px]"
+          className={cn(
+            "prose prose-sm max-w-none min-h-[120px]",
+            isBorderless ? "px-0 py-2" : "p-4"
+          )}
         />
 
         {/* Bubble menu for convert to subtasks */}
