@@ -172,7 +172,7 @@ export function CreateStoryDialog({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Entrez le titre de la story..."
-                  className="text-lg font-medium border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
+                  className="text-lg font-medium border-0 border-b rounded-none px-0 shadow-none focus-visible:ring-0 focus-visible:border-primary"
                   autoFocus
                 />
               </div>
@@ -186,6 +186,7 @@ export function CreateStoryDialog({
                   value={description}
                   onChange={setDescription}
                   placeholder="Décrivez la story..."
+                  variant="borderless"
                 />
               </div>
 

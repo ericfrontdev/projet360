@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import "./tiptap-styles.css";
 import { ThemeProvider } from "@/components/theme";
 
 const fontSans = Plus_Jakarta_Sans({
