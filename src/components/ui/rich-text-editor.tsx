@@ -126,7 +126,7 @@ export function RichTextEditor({
   const Divider = () => <div className="w-px h-4 bg-border mx-1" />;
 
   return (
-    <div className="border rounded-md bg-background">
+    <div className="border rounded-md bg-background focus-within:ring-1 focus-within:ring-ring">
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 px-2 py-1.5 border-b bg-muted/30">
         <ToolbarButton
@@ -218,10 +218,10 @@ export function RichTextEditor({
       </div>
 
       {/* Editor */}
-      <div className="relative">
+      <div className="relative min-h-[120px]">
         <EditorContent
           editor={editor}
-          className="prose prose-sm max-w-none p-4 min-h-[300px] focus:outline-none"
+          className="prose prose-sm max-w-none p-4 min-h-[120px]"
         />
 
         {/* Bubble menu for convert to subtasks */}
