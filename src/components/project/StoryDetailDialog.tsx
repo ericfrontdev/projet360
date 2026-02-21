@@ -181,6 +181,26 @@ export function StoryDetailDialog({
     }
   }
 
+  async function handleAssignStory(userId: string | null) {
+    if (!storyDetail) return;
+    const assignee = userId ? projectUsers.find((u) => u.id === userId) || null : null;
+
+    mutateStory(
+      { ...storyDetail, assignee: assignee ? { name: assignee.name, email: assignee.email } : null },
+      false
+    );
+
+    try {
+      await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignee: userId }),
+      });
+    } finally {
+      mutateStory();
+    }
+  }
+
   async function handleAssignTask(taskId: string, userId: string | null) {
     if (!storyDetail) return;
     const assignee = userId ? projectUsers.find((u) => u.id === userId) || null : null;
@@ -748,18 +768,42 @@ export function StoryDetailDialog({
                     <User className="h-3 w-3" />
                     Assigné à
                   </label>
-                  <div className="text-sm">
-                    {storyDetail?.assignee ? (
-                      <div className="flex items-center gap-2">
-                        <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center text-xs font-medium text-primary-foreground">
-                          {getInitials(storyDetail.assignee.name || storyDetail.assignee.email)}
-                        </div>
-                        <span>{storyDetail.assignee.name || storyDetail.assignee.email}</span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground italic">Non assigné</span>
-                    )}
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="w-full justify-start h-auto py-1.5 px-2 -ml-2 font-normal">
+                        {storyDetail?.assignee ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center text-xs font-medium text-primary-foreground flex-shrink-0">
+                              {getInitials(storyDetail.assignee.name || storyDetail.assignee.email)}
+                            </div>
+                            <span className="text-sm">{storyDetail.assignee.name || storyDetail.assignee.email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground italic">Non assigné</span>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      <DropdownMenuItem onClick={() => handleAssignStory(null)}>
+                        <span className="text-muted-foreground">Non assigné</span>
+                        {!storyDetail?.assignee && <Check className="h-3 w-3 ml-auto" />}
+                      </DropdownMenuItem>
+                      {projectUsers.map((u) => (
+                        <DropdownMenuItem key={u.id} onClick={() => handleAssignStory(u.id)}>
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center text-xs font-medium text-primary-foreground flex-shrink-0">
+                              {getInitials(u.name || u.email)}
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm truncate">{u.name || u.email}</span>
+                              {u.name && <span className="text-xs text-muted-foreground truncate">{u.email}</span>}
+                            </div>
+                          </div>
+                          {storyDetail?.assignee?.email === u.email && <Check className="h-3 w-3 ml-auto flex-shrink-0" />}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {/* Requester */}
