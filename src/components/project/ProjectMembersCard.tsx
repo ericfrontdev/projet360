@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Users, UserPlus } from "lucide-react";
+import useSWR from "swr";
+import { useState } from "react";
+import { Users, UserPlus, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
 import { AddMemberDialog } from "./AddMemberDialog";
+import { fetcher } from "@/lib/fetcher";
 
 interface Member {
   id: string;
@@ -20,28 +22,14 @@ interface ProjectMembersCardProps {
 }
 
 export function ProjectMembersCard({ projectId }: ProjectMembersCardProps) {
-  const [members, setMembers] = useState<Member[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
 
-  useEffect(() => {
-    fetchMembers();
-  }, [projectId]);
-
-  async function fetchMembers() {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/projects/${projectId}/members`);
-      if (response.ok) {
-        const data = await response.json();
-        setMembers(data);
-      }
-    } catch (error) {
-      console.error("Error fetching members:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const {
+    data: members,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR<Member[]>(`/api/projects/${projectId}/members`, fetcher);
 
   return (
     <>
@@ -50,9 +38,11 @@ export function ProjectMembersCard({ projectId }: ProjectMembersCardProps) {
           <CardTitle className="flex items-center gap-2 text-base">
             <Users size={18} />
             Membres
-            <span className="text-sm font-normal text-muted-foreground">
-              ({members.length})
-            </span>
+            {members && (
+              <span className="text-sm font-normal text-muted-foreground">
+                ({members.length})
+              </span>
+            )}
           </CardTitle>
           <Button variant="ghost" size="sm" onClick={() => setShowAddDialog(true)}>
             <UserPlus size={16} className="mr-1" />
@@ -62,10 +52,13 @@ export function ProjectMembersCard({ projectId }: ProjectMembersCardProps) {
         <CardContent>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Chargement...</p>
-          ) : members.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">
-              Aucun membre
-            </p>
+          ) : error ? (
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertCircle size={14} />
+              Impossible de charger les membres
+            </div>
+          ) : !members || members.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">Aucun membre</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {members.map((member) => (
@@ -93,7 +86,7 @@ export function ProjectMembersCard({ projectId }: ProjectMembersCardProps) {
         projectId={projectId}
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
-        onMemberAdded={fetchMembers}
+        onMemberAdded={() => mutate()}
       />
     </>
   );
