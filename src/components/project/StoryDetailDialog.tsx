@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { X, Edit3, Copy, Link2, CheckSquare, User, Flag, Calendar, Tag, GitBranch, MessageSquare, Clock, MoreHorizontal, Check, Circle, Loader2, FileText, FolderOpen, Archive, ArchiveRestore, CopyCheck } from "lucide-react";
 import {
   Dialog,
@@ -129,84 +131,36 @@ export function StoryDetailDialog({
   onOpenChange,
   onEdit,
 }: StoryDetailDialogProps) {
-  const [storyDetail, setStoryDetail] = useState<StoryDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const storyKey = open && story ? `/api/projects/${projectId}/stories/${story.id}` : null;
+  const commentsKey = open && story ? `/api/projects/${projectId}/stories/${story.id}/comments` : null;
+  const membersKey = open ? `/api/projects/${projectId}/members` : null;
+
+  const { data: storyDetail, isLoading, mutate: mutateStory } = useSWR<StoryDetail>(storyKey, fetcher);
+  const { data: comments = [], isLoading: isLoadingComments, mutate: mutateComments } = useSWR<Comment[]>(commentsKey, fetcher);
+  const { data: projectUsers = [], isLoading: isLoadingUsers } = useSWR<TaskAssignee[]>(membersKey, fetcher);
+
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState("");
   const [isSavingDescription, setIsSavingDescription] = useState(false);
-  
+
   // New subtask state
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
-  
-  // Users for assignment
-  const [projectUsers, setProjectUsers] = useState<TaskAssignee[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  
+
   // Comments state
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  
+
   // Archive confirmation dialog
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
-  
+
   // Restore confirmation dialog
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
-  
+
   // Copy tooltip state
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (open && story) {
-      fetchStoryDetail();
-      fetchProjectUsers();
-      fetchComments();
-    }
-    // Reset states when closing
-    if (!open) {
-      setIsEditingDescription(false);
-      setIsAddingSubtask(false);
-      setNewComment("");
-    }
-  }, [open, story]);
-
-  async function fetchProjectUsers() {
-    setIsLoadingUsers(true);
-    try {
-      const response = await fetch(`/api/projects/${projectId}/members`);
-      if (response.ok) {
-        const data = await response.json();
-        setProjectUsers(data);
-      }
-    } catch (error) {
-      console.error("Error fetching project users:", error);
-    } finally {
-      setIsLoadingUsers(false);
-    }
-  }
-
-  async function fetchComments() {
-    if (!story) return;
-    setIsLoadingComments(true);
-    try {
-      const response = await fetch(`/api/projects/${projectId}/stories/${story.id}/comments`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Comments fetched:", data);
-        setComments(data);
-      } else {
-        console.error("Error fetching comments:", response.status, await response.text());
-      }
-    } catch (error) {
-      console.error("Error fetching comments:", error);
-    } finally {
-      setIsLoadingComments(false);
-    }
-  }
 
   async function handleSubmitComment() {
     if (!newComment.trim() || !story) return;
@@ -219,14 +173,9 @@ export function StoryDetailDialog({
       });
       if (response.ok) {
         const comment = await response.json();
-        console.log("Comment created:", comment);
-        setComments((prev) => [...prev, comment]);
+        mutateComments((prev) => [...(prev ?? []), comment], false);
         setNewComment("");
-      } else {
-        console.error("Error creating comment:", response.status, await response.text());
       }
-    } catch (error) {
-      console.error("Error submitting comment:", error);
     } finally {
       setIsSubmittingComment(false);
     }
@@ -234,44 +183,22 @@ export function StoryDetailDialog({
 
   async function handleAssignTask(taskId: string, userId: string | null) {
     if (!storyDetail) return;
-    
-    // Find the user to assign
     const assignee = userId ? projectUsers.find((u) => u.id === userId) || null : null;
-    
-    // Update locally first
-    setStoryDetail({
-      ...storyDetail,
-      tasks: storyDetail.tasks.map((t) =>
-        t.id === taskId ? { ...t, assignee: assignee || undefined } : t
-      ),
-    });
-    
+
+    // Optimistic update
+    mutateStory(
+      { ...storyDetail, tasks: storyDetail.tasks.map((t) => t.id === taskId ? { ...t, assignee: assignee || undefined } : t) },
+      false
+    );
+
     try {
       await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/tasks/${taskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assigneeId: userId }),
       });
-    } catch (error) {
-      console.error("Error assigning task:", error);
-      // Revert on error
-      fetchStoryDetail();
-    }
-  }
-
-  async function fetchStoryDetail() {
-    if (!story) return;
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/projects/${projectId}/stories/${story.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setStoryDetail(data);
-      }
-    } catch (error) {
-      console.error("Error fetching story details:", error);
     } finally {
-      setIsLoading(false);
+      mutateStory();
     }
   }
 
@@ -285,11 +212,9 @@ export function StoryDetailDialog({
         body: JSON.stringify({ description: editedDescription }),
       });
       if (response.ok) {
-        setStoryDetail({ ...storyDetail, description: editedDescription });
+        mutateStory({ ...storyDetail, description: editedDescription }, false);
         setIsEditingDescription(false);
       }
-    } catch (error) {
-      console.error("Error saving description:", error);
     } finally {
       setIsSavingDescription(false);
     }
@@ -302,7 +227,6 @@ export function StoryDetailDialog({
 
   async function handleAddSubtask() {
     if (!newSubtaskTitle.trim() || !storyDetail) return;
-    
     try {
       const response = await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/tasks`, {
         method: "POST",
@@ -312,35 +236,31 @@ export function StoryDetailDialog({
       if (response.ok) {
         setNewSubtaskTitle("");
         setIsAddingSubtask(false);
-        fetchStoryDetail(); // Refresh to get the new task
+        mutateStory(); // Revalidate to get new task
       }
-    } catch (error) {
-      console.error("Error adding subtask:", error);
+    } catch {
+      // silently fail — user can retry
     }
   }
 
   async function handleToggleTaskStatus(taskId: string, currentStatus: string) {
     if (!storyDetail) return;
     const newStatus = currentStatus === "DONE" ? "TODO" : "DONE";
-    
-    // Update locally first
-    setStoryDetail({
-      ...storyDetail,
-      tasks: storyDetail.tasks.map((t) =>
-        t.id === taskId ? { ...t, status: newStatus } : t
-      ),
-    });
-    
+
+    // Optimistic update
+    mutateStory(
+      { ...storyDetail, tasks: storyDetail.tasks.map((t) => t.id === taskId ? { ...t, status: newStatus } : t) },
+      false
+    );
+
     try {
       await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/tasks/${taskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-    } catch (error) {
-      console.error("Error updating task status:", error);
-      // Revert on error
-      fetchStoryDetail();
+    } finally {
+      mutateStory();
     }
   }
 
@@ -750,10 +670,7 @@ export function StoryDetailDialog({
                               status: "BACKLOG",
                               priority: storyDetail.priority,
                             }),
-                          }).then(() => {
-                            onOpenChange(false);
-                            window.location.reload();
-                          });
+                          }).then(() => onOpenChange(false));
                         }
                       }}>
                         <Copy className="h-4 w-4 mr-2" />
@@ -910,12 +827,10 @@ export function StoryDetailDialog({
                     if (response.ok) {
                       setShowArchiveConfirm(false);
                       onOpenChange(false);
-                      window.location.reload();
-                    } else {
-                      console.error("Erreur lors de l'archivage:", await response.text());
+                      mutateStory();
                     }
-                  } catch (error) {
-                    console.error("Erreur lors de l'archivage:", error);
+                  } catch {
+                    // silently fail — user can retry
                   } finally {
                     setIsArchiving(false);
                   }
@@ -958,12 +873,10 @@ export function StoryDetailDialog({
                     if (response.ok) {
                       setShowRestoreConfirm(false);
                       onOpenChange(false);
-                      window.location.reload();
-                    } else {
-                      console.error("Erreur lors de la restauration:", await response.text());
+                      mutateStory();
                     }
-                  } catch (error) {
-                    console.error("Erreur lors de la restauration:", error);
+                  } catch {
+                    // silently fail — user can retry
                   } finally {
                     setIsRestoring(false);
                   }

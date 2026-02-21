@@ -64,10 +64,9 @@ export async function GET(
     }
 
     return NextResponse.json(users);
-  } catch (error) {
-    console.error("Error fetching members:", error);
+  } catch {
     return NextResponse.json(
-      { error: "Failed to fetch members" },
+      { error: "Échec de la récupération des membres" },
       { status: 500 }
     );
   }
@@ -88,8 +87,6 @@ export async function POST(
   const { id: projectId } = await params;
 
   try {
-    console.log("Adding members to project:", projectId, "by user:", user.id);
-    
     // First, ensure the current user is a member (for backward compatibility)
     const currentUserMember = await prisma.projectMember.findFirst({
       where: {
@@ -112,7 +109,6 @@ export async function POST(
             role: "ADMIN",
           },
         });
-        console.log("Added owner as admin member");
       } else {
         return NextResponse.json({ error: "Forbidden - not a project member" }, { status: 403 });
       }
@@ -249,10 +245,9 @@ export async function POST(
       },
       { status: results.length > 0 ? 201 : 400 }
     );
-  } catch (error: any) {
-    console.error("Error adding member:", error);
+  } catch {
     return NextResponse.json(
-      { error: "Failed to add member", details: error?.message || String(error) },
+      { error: "Échec de l'ajout du membre" },
       { status: 500 }
     );
   }
@@ -307,10 +302,9 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error removing member:", error);
+  } catch {
     return NextResponse.json(
-      { error: "Failed to remove member" },
+      { error: "Échec de la suppression du membre" },
       { status: 500 }
     );
   }

@@ -102,10 +102,9 @@ export async function GET() {
         inProgress: inProgressStories,
       },
     });
-  } catch (error) {
-    console.error("Error fetching my work data:", error);
+  } catch {
     return NextResponse.json(
-      { error: "Failed to fetch data" },
+      { error: "Échec de la récupération des données" },
       { status: 500 }
     );
   }
