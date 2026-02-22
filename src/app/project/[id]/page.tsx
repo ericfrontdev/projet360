@@ -3,6 +3,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { ProjectPageClient } from "@/components/project/ProjectPageClient";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { ensureUserExists } from "@/lib/ensure-user-exists";
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>;
@@ -18,6 +19,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   if (!user) {
     return null;
+  }
+
+  // Migrate legacy UUID if needed so the auth check below finds the member record
+  try {
+    await ensureUserExists(user.id, user.email!, user.user_metadata?.name);
+  } catch {
+    // Non-blocking — if migration fails, the auth check below will return notFound()
   }
 
   const INITIAL_TAKE = 100;

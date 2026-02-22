@@ -24,6 +24,7 @@ interface ProjectsState {
   updateProject: (id: string, data: { name?: string; description?: string }) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   selectProject: (id: string | null) => void;
+  reset: () => void;
 }
 
 export const useProjectsStore = create<ProjectsState>((set, get) => ({
@@ -109,4 +110,6 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   selectProject: (id) => {
     set({ selectedProjectId: id });
   },
+
+  reset: () => set({ projects: [], selectedProjectId: null, isLoading: false, error: null }),
 }));

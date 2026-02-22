@@ -4,14 +4,17 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useMyWorkStore } from "@/stores/my-work";
+import { useProjectsStore } from "@/stores/projects";
 
 export function LogoutButton() {
   const router = useRouter();
   const supabase = createClient();
   const resetCache = useMyWorkStore((s) => s.resetCache);
+  const resetProjects = useProjectsStore((s) => s.reset);
 
   async function handleLogout() {
     resetCache();
+    resetProjects();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
