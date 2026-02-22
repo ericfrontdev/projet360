@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import type { Checklist, ChecklistItem } from "@/components/project/kanban/types";
+import type { Checklist, ChecklistItem, ChecklistItemStatus } from "@/components/project/kanban/types";
 
 interface ChecklistSectionProps {
   checklist: Checklist;
@@ -33,8 +33,20 @@ export function ChecklistSection({
 
   const base = `/api/projects/${projectId}/stories/${storyId}/checklists/${checklist.id}`;
 
-  const checkedCount = checklist.items.filter((i) => i.checked).length;
+  const checkedCount = checklist.items.filter((i) => i.status === "DONE").length;
   const totalCount = checklist.items.length;
+
+  function cycleStatus(current: ChecklistItemStatus): ChecklistItemStatus {
+    if (current === "TODO") return "IN_PROGRESS";
+    if (current === "IN_PROGRESS") return "DONE";
+    return "TODO";
+  }
+
+  function itemCheckedState(status: ChecklistItemStatus): boolean | "indeterminate" {
+    if (status === "DONE") return true;
+    if (status === "IN_PROGRESS") return "indeterminate";
+    return false;
+  }
 
   useEffect(() => {
     if (isAddingItem) addInputRef.current?.focus();
@@ -71,12 +83,13 @@ export function ChecklistSection({
     });
   }
 
-  async function handleToggleItem(item: ChecklistItem) {
-    patchItem(item.id, { checked: !item.checked });
+  async function handleCycleItem(item: ChecklistItem) {
+    const newStatus = cycleStatus(item.status);
+    patchItem(item.id, { status: newStatus });
     await fetch(`${base}/items/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ checked: !item.checked }),
+      body: JSON.stringify({ status: newStatus }),
     });
   }
 
@@ -92,7 +105,7 @@ export function ChecklistSection({
     // Optimistic: add with temp id
     const tempId = `temp-${Date.now()}`;
     patchChecklist({
-      items: [...checklist.items, { id: tempId, title, checked: false, position: checklist.items.length }],
+      items: [...checklist.items, { id: tempId, title, status: "TODO" as const, position: checklist.items.length }],
     });
     const res = await fetch(`${base}/items`, {
       method: "POST",
@@ -176,8 +189,8 @@ export function ChecklistSection({
         {checklist.items.map((item) => (
           <div key={item.id} className="flex items-center gap-2 py-1 rounded-md hover:bg-muted/40 px-1">
             <Checkbox
-              checked={item.checked}
-              onCheckedChange={() => handleToggleItem(item)}
+              checked={itemCheckedState(item.status)}
+              onCheckedChange={() => handleCycleItem(item)}
               className="flex-shrink-0"
             />
             {editingItemId === item.id ? (
@@ -196,7 +209,7 @@ export function ChecklistSection({
               <span
                 className={cn(
                   "flex-1 text-sm cursor-pointer",
-                  item.checked && "line-through text-muted-foreground"
+                  item.status === "DONE" && "line-through text-muted-foreground"
                 )}
                 onClick={() => { setEditingItemId(item.id); setEditingItemTitle(item.title); }}
               >

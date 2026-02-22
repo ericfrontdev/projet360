@@ -85,10 +85,12 @@ export interface Label {
   color: string;
 }
 
+export type ChecklistItemStatus = "TODO" | "IN_PROGRESS" | "DONE";
+
 export interface ChecklistItem {
   id: string;
   title: string;
-  checked: boolean;
+  status: ChecklistItemStatus;
   position: number;
 }
 

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const updateItemSchema = z.object({
   title: z.string().min(1).max(500).trim().optional(),
-  checked: z.boolean().optional(),
+  status: z.enum(["TODO", "IN_PROGRESS", "DONE"]).optional(),
 });
 
 async function verifyItem(userId: string, projectId: string, checklistId: string, itemId: string) {
@@ -42,7 +42,7 @@ export async function PATCH(
       where: { id: itemId },
       data: {
         ...(parsed.data.title !== undefined && { title: parsed.data.title }),
-        ...(parsed.data.checked !== undefined && { checked: parsed.data.checked }),
+        ...(parsed.data.status !== undefined && { status: parsed.data.status }),
       },
     });
 

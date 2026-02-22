@@ -70,7 +70,7 @@ export function CreateStoryDialog({
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [selectedLabels, setSelectedLabels] = useState<Label[]>([]);
   const [showChecklist, setShowChecklist] = useState(false);
-  const [localChecklistItems, setLocalChecklistItems] = useState<{ id: string; title: string; checked: boolean }[]>([]);
+  const [localChecklistItems, setLocalChecklistItems] = useState<{ id: string; title: string; status: "TODO" | "IN_PROGRESS" | "DONE" }[]>([]);
   const [isAddingLocalItem, setIsAddingLocalItem] = useState(false);
   const [newLocalItemTitle, setNewLocalItemTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -134,7 +134,7 @@ export function CreateStoryDialog({
               fetch(`/api/projects/${projectId}/stories/${storyData.id}/checklists/${checklist.id}/items`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title: item.title, checked: item.checked }),
+                body: JSON.stringify({ title: item.title, status: item.status }),
               })
             )
           );
@@ -290,14 +290,17 @@ export function CreateStoryDialog({
                     {localChecklistItems.map((item) => (
                       <div key={item.id} className="flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/40">
                         <Checkbox
-                          checked={item.checked}
+                          checked={item.status === "DONE" ? true : item.status === "IN_PROGRESS" ? "indeterminate" : false}
                           onCheckedChange={() =>
                             setLocalChecklistItems((prev) =>
-                              prev.map((i) => i.id === item.id ? { ...i, checked: !i.checked } : i)
+                              prev.map((i) => i.id === item.id ? {
+                                ...i,
+                                status: i.status === "TODO" ? "IN_PROGRESS" : i.status === "IN_PROGRESS" ? "DONE" : "TODO"
+                              } as typeof i : i)
                             )
                           }
                         />
-                        <span className={cn("flex-1 text-sm", item.checked && "line-through text-muted-foreground")}>{item.title}</span>
+                        <span className={cn("flex-1 text-sm", item.status === "DONE" && "line-through text-muted-foreground")}>{item.title}</span>
                         <button
                           type="button"
                           onClick={() => setLocalChecklistItems((prev) => prev.filter((i) => i.id !== item.id))}
@@ -317,7 +320,7 @@ export function CreateStoryDialog({
                         onChange={(e) => setNewLocalItemTitle(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && newLocalItemTitle.trim()) {
-                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim(), checked: false }]);
+                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim(), status: "TODO" as const }]);
                             setNewLocalItemTitle("");
                           }
                           if (e.key === "Escape") { setIsAddingLocalItem(false); setNewLocalItemTitle(""); }
@@ -332,7 +335,7 @@ export function CreateStoryDialog({
                           disabled={!newLocalItemTitle.trim()}
                           onClick={() => {
                             if (!newLocalItemTitle.trim()) return;
-                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim(), checked: false }]);
+                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim(), status: "TODO" as const }]);
                             setNewLocalItemTitle("");
                           }}
                         >
