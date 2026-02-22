@@ -178,9 +178,9 @@ export function CreateStoryDialog({
   }
 
   async function handleDeleteLabel(labelId: string) {
-    await fetch(`/api/projects/${projectId}/labels/${labelId}`, { method: "DELETE" });
     mutateLabels((prev) => prev?.filter((l) => l.id !== labelId), false);
     setSelectedLabels((prev) => prev.filter((l) => l.id !== labelId));
+    await fetch(`/api/projects/${projectId}/labels/${labelId}`, { method: "DELETE" });
   }
 
   const currentStatus = statusOptions.find((s) => s.id === status);
