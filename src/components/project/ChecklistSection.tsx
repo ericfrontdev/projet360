@@ -1,16 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { GripVertical, MoreHorizontal, X } from "lucide-react";
+import { GripVertical, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Checklist, ChecklistItem } from "@/components/project/kanban/types";
 
@@ -132,7 +126,7 @@ export function ChecklistSection({
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="group/header flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isEditingTitle ? (
             <Input
@@ -147,33 +141,34 @@ export function ChecklistSection({
               className="h-7 text-sm font-medium w-48"
             />
           ) : (
-            <button
-              type="button"
-              onClick={() => { setEditedTitle(checklist.title); setIsEditingTitle(true); }}
-              className="text-sm font-medium hover:underline"
-            >
-              {checklist.title}
-            </button>
+            <span className="text-sm font-medium">{checklist.title}</span>
           )}
           <span className="text-xs text-muted-foreground">
             {checkedCount}/{totalCount}
           </span>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => { setEditedTitle(checklist.title); setIsEditingTitle(true); }}>
-              Renommer
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={() => onDelete(checklist.id)}>
-              Supprimer la checklist
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            title="Renommer"
+            onClick={() => { setEditedTitle(checklist.title); setIsEditingTitle(true); }}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            title="Supprimer la checklist"
+            onClick={() => onDelete(checklist.id)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {/* Items */}
