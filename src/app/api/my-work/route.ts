@@ -53,6 +53,48 @@ export async function GET() {
       completedSubtasks: story.tasks.filter((t) => t.status === "DONE").length,
     }));
 
+    // Get checklist items (TODO/IN_PROGRESS) from stories authored or assigned to user
+    const checklistItems = await prisma.checklistItem.findMany({
+      where: {
+        checklist: {
+          story: {
+            OR: [
+              { authorId: user.id },
+              { assigneeId: user.id },
+            ],
+          },
+        },
+      },
+      include: {
+        checklist: {
+          select: {
+            title: true,
+            story: {
+              select: {
+                id: true,
+                title: true,
+                project: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 20,
+    });
+
+    const formattedChecklistItems = checklistItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      status: item.status,
+      checklistId: item.checklistId,
+      checklist: item.checklist.title,
+      story: item.checklist.story.title,
+      storyId: item.checklist.story.id,
+      projectId: item.checklist.story.project.id,
+      project: item.checklist.story.project.name,
+    }));
+
     // Get recent activity (simplified - in real app would have Activity model)
     const recentStories = await prisma.story.findMany({
       where: {
@@ -95,6 +137,7 @@ export async function GET() {
 
     return NextResponse.json({
       stories: formattedStories,
+      checklistItems: formattedChecklistItems,
       activities,
       stats: {
         projects: totalProjects,

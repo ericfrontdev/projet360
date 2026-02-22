@@ -15,6 +15,18 @@ interface Activity {
   time: string;
 }
 
+export interface ChecklistItem {
+  id: string;
+  title: string;
+  status: string;
+  checklistId: string;
+  checklist: string;
+  story: string;
+  storyId: string;
+  projectId: string;
+  project: string;
+}
+
 interface Stats {
   projects: number;
   stories: number;
@@ -23,16 +35,19 @@ interface Stats {
 
 interface MyWorkState {
   stories: Story[];
+  checklistItems: ChecklistItem[];
   activities: Activity[];
   stats: Stats;
   isLoading: boolean;
   error: string | null;
-  
+
   fetchMyWork: () => Promise<void>;
+  updateChecklistItemStatus: (itemId: string, status: string) => void;
 }
 
 export const useMyWorkStore = create<MyWorkState>((set) => ({
   stories: [],
+  checklistItems: [],
   activities: [],
   stats: {
     projects: 0,
@@ -50,6 +65,7 @@ export const useMyWorkStore = create<MyWorkState>((set) => ({
       const data = await response.json();
       set({
         stories: data.stories,
+        checklistItems: data.checklistItems,
         activities: data.activities,
         stats: data.stats,
         isLoading: false,
@@ -57,5 +73,13 @@ export const useMyWorkStore = create<MyWorkState>((set) => ({
     } catch (error) {
       set({ error: (error as Error).message, isLoading: false });
     }
+  },
+
+  updateChecklistItemStatus: (itemId, status) => {
+    set((state) => ({
+      checklistItems: state.checklistItems.map((item) =>
+        item.id === itemId ? { ...item, status } : item
+      ),
+    }));
   },
 }));
