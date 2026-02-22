@@ -132,7 +132,7 @@ export function ChecklistSection({
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="group/header flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isEditingTitle ? (
             <Input
@@ -161,7 +161,7 @@ export function ChecklistSection({
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
+            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/header:opacity-100 transition-opacity">
               <MoreHorizontal className="h-3.5 w-3.5" />
             </Button>
           </DropdownMenuTrigger>
