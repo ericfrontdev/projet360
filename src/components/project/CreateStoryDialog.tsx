@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label as FormLabel } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -69,7 +70,7 @@ export function CreateStoryDialog({
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [selectedLabels, setSelectedLabels] = useState<Label[]>([]);
   const [showChecklist, setShowChecklist] = useState(false);
-  const [localChecklistItems, setLocalChecklistItems] = useState<{ id: string; title: string }[]>([]);
+  const [localChecklistItems, setLocalChecklistItems] = useState<{ id: string; title: string; checked: boolean }[]>([]);
   const [isAddingLocalItem, setIsAddingLocalItem] = useState(false);
   const [newLocalItemTitle, setNewLocalItemTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -288,8 +289,15 @@ export function CreateStoryDialog({
                   <div className="space-y-1">
                     {localChecklistItems.map((item) => (
                       <div key={item.id} className="flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/40">
-                        <div className="h-3.5 w-3.5 border rounded flex-shrink-0" />
-                        <span className="flex-1 text-sm">{item.title}</span>
+                        <Checkbox
+                          checked={item.checked}
+                          onCheckedChange={() =>
+                            setLocalChecklistItems((prev) =>
+                              prev.map((i) => i.id === item.id ? { ...i, checked: !i.checked } : i)
+                            )
+                          }
+                        />
+                        <span className={cn("flex-1 text-sm", item.checked && "line-through text-muted-foreground")}>{item.title}</span>
                         <button
                           type="button"
                           onClick={() => setLocalChecklistItems((prev) => prev.filter((i) => i.id !== item.id))}
@@ -309,7 +317,7 @@ export function CreateStoryDialog({
                         onChange={(e) => setNewLocalItemTitle(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && newLocalItemTitle.trim()) {
-                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim() }]);
+                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim(), checked: false }]);
                             setNewLocalItemTitle("");
                           }
                           if (e.key === "Escape") { setIsAddingLocalItem(false); setNewLocalItemTitle(""); }
@@ -324,7 +332,7 @@ export function CreateStoryDialog({
                           disabled={!newLocalItemTitle.trim()}
                           onClick={() => {
                             if (!newLocalItemTitle.trim()) return;
-                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim() }]);
+                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim(), checked: false }]);
                             setNewLocalItemTitle("");
                           }}
                         >
