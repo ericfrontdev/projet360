@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import { X, Edit3, Copy, Link2, CheckSquare, User, Flag, Calendar, Tag, GitBranch, MessageSquare, Clock, MoreHorizontal, Check, Circle, Loader2, FileText, FolderOpen, Archive, ArchiveRestore, CopyCheck, ListChecks, Paperclip } from "lucide-react";
@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn, getInitials } from "@/lib/utils";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { MentionTextarea, extractMentions } from "@/components/ui/mention-textarea";
+import { createClient } from "@/lib/supabase/client";
 import { DatePicker } from "@/components/ui/date-picker";
 import { LabelSelector } from "@/components/project/LabelSelector";
 import { ChecklistSection } from "@/components/project/ChecklistSection";
@@ -159,6 +161,16 @@ export function StoryDetailDialog({
   // Comments state
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [currentUserInitial, setCurrentUserInitial] = useState("?");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email || "";
+      setCurrentUserInitial(getInitials(name));
+    });
+  }, []);
 
   // Archive confirmation dialog
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
@@ -175,10 +187,11 @@ export function StoryDetailDialog({
     if (!newComment.trim() || !story) return;
     setIsSubmittingComment(true);
     try {
+      const mentions = extractMentions(newComment.trim(), projectUsers);
       const response = await fetch(`/api/projects/${projectId}/stories/${story.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newComment.trim() }),
+        body: JSON.stringify({ content: newComment.trim(), mentions }),
       });
       if (response.ok) {
         const comment = await response.json();
@@ -742,14 +755,14 @@ export function StoryDetailDialog({
                 {/* Add Comment */}
                 <div className="flex items-start gap-3 pt-2">
                   <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-xs font-medium text-primary-foreground flex-shrink-0">
-                    {getInitials(storyDetail?.author?.name || storyDetail?.author?.email || "")}
+                    {currentUserInitial}
                   </div>
                   <div className="flex-1">
-                    <textarea
-                      placeholder="Ajouter un commentaire..."
+                    <MentionTextarea
+                      placeholder="Ajouter un commentaire... Utilisez @ pour mentionner"
                       value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      className="w-full min-h-[80px] p-3 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      onChange={setNewComment}
+                      users={projectUsers}
                     />
                     <div className="flex justify-end mt-2">
                       <Button 

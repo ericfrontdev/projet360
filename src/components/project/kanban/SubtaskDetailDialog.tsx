@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn, getInitials } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import type { Task, ProjectUser, TaskStatus } from "./types";
 import { TaskStatusDropdown } from "./TaskStatusDropdown";
@@ -68,6 +69,16 @@ export function SubtaskDetailDialog({
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [taskDetail, setTaskDetail] = useState<Task | null>(null);
+  const [currentUserInitial, setCurrentUserInitial] = useState("?");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email || "";
+      setCurrentUserInitial(getInitials(name));
+    });
+  }, []);
 
   useEffect(() => {
     if (open && task) {
@@ -284,7 +295,7 @@ export function SubtaskDetailDialog({
               
               <div className="flex items-start gap-3 pt-2">
                 <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-xs font-medium text-primary-foreground flex-shrink-0">
-                  EO
+                  {currentUserInitial}
                 </div>
                 <div className="flex-1">
                   <MentionTextarea
