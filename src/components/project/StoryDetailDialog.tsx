@@ -28,6 +28,8 @@ import {
 import { cn, getInitials } from "@/lib/utils";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { DatePicker } from "@/components/ui/date-picker";
+import { LabelSelector } from "@/components/project/LabelSelector";
+import type { Label } from "@/components/project/kanban/types";
 
 interface TaskAssignee {
   id: string;
@@ -74,6 +76,7 @@ interface StoryDetail {
     email: string;
   } | null;
   dueDate?: string | null;
+  labels?: Label[];
 }
 
 interface StoryDetailDialogProps {
@@ -140,6 +143,8 @@ export function StoryDetailDialog({
   const { data: storyDetail, isLoading, mutate: mutateStory } = useSWR<StoryDetail>(storyKey, fetcher);
   const { data: comments = [], isLoading: isLoadingComments, mutate: mutateComments } = useSWR<Comment[]>(commentsKey, fetcher);
   const { data: projectUsers = [], isLoading: isLoadingUsers } = useSWR<TaskAssignee[]>(membersKey, fetcher);
+  const labelsKey = open ? `/api/projects/${projectId}/labels` : null;
+  const { data: projectLabels = [], mutate: mutateProjectLabels } = useSWR<Label[]>(labelsKey, fetcher);
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState("");
@@ -180,6 +185,45 @@ export function StoryDetailDialog({
       }
     } finally {
       setIsSubmittingComment(false);
+    }
+  }
+
+  async function handleToggleLabel(label: Label) {
+    if (!storyDetail) return;
+
+    const isSelected = storyDetail.labels?.some((l) => l.id === label.id);
+    mutateStory(
+      {
+        ...storyDetail,
+        labels: isSelected
+          ? storyDetail.labels?.filter((l) => l.id !== label.id)
+          : [...(storyDetail.labels ?? []), label],
+      },
+      false
+    );
+
+    try {
+      await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/labels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ labelId: label.id }),
+      });
+    } finally {
+      mutateStory();
+    }
+  }
+
+  async function handleCreateAndToggleLabel(name: string, color: string) {
+    if (!storyDetail) return;
+    const res = await fetch(`/api/projects/${projectId}/labels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, color }),
+    });
+    if (res.ok) {
+      const newLabel: Label = await res.json();
+      mutateProjectLabels((prev) => [...(prev ?? []), newLabel], false);
+      await handleToggleLabel(newLabel);
     }
   }
 
@@ -825,6 +869,21 @@ export function StoryDetailDialog({
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                </div>
+
+                {/* Labels */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Tag className="h-3 w-3" />
+                    Labels
+                  </label>
+                  <LabelSelector
+                    projectId={projectId}
+                    selectedLabels={storyDetail?.labels ?? []}
+                    projectLabels={projectLabels}
+                    onToggle={handleToggleLabel}
+                    onCreateAndToggle={handleCreateAndToggleLabel}
+                  />
                 </div>
 
                 {/* Due date */}

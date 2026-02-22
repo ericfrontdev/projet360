@@ -66,6 +66,7 @@ export const createStorySchema = z.object({
   priority: z.number().int().min(0).max(3).optional(),
   assigneeId: z.string().uuid().nullish(),
   dueDate: z.coerce.date().nullish(),
+  labelIds: z.array(z.string().uuid()).optional().default([]),
 });
 
 export const updateStorySchema = z.object({
@@ -104,6 +105,17 @@ export const updateTaskSchema = z.object({
     .optional(),
   status: TaskStatusSchema.optional(),
   assigneeId: z.string().nullable().optional(),
+});
+
+// ─── Labels ───────────────────────────────────────────────────────────────────
+
+export const createLabelSchema = z.object({
+  name: z
+    .string({ error: "Le nom est requis" })
+    .min(1, "Le nom est requis")
+    .max(50, "Le nom ne peut pas dépasser 50 caractères")
+    .trim(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur invalide").default("#6366f1"),
 });
 
 // ─── Comments ─────────────────────────────────────────────────────────────────
