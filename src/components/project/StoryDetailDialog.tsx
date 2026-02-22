@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn, getInitials } from "@/lib/utils";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { MentionTextarea, extractMentions } from "@/components/ui/mention-textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { LabelSelector } from "@/components/project/LabelSelector";
 import { ChecklistSection } from "@/components/project/ChecklistSection";
@@ -175,10 +176,11 @@ export function StoryDetailDialog({
     if (!newComment.trim() || !story) return;
     setIsSubmittingComment(true);
     try {
+      const mentions = extractMentions(newComment.trim(), projectUsers);
       const response = await fetch(`/api/projects/${projectId}/stories/${story.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newComment.trim() }),
+        body: JSON.stringify({ content: newComment.trim(), mentions }),
       });
       if (response.ok) {
         const comment = await response.json();
@@ -745,11 +747,11 @@ export function StoryDetailDialog({
                     {getInitials(storyDetail?.author?.name || storyDetail?.author?.email || "")}
                   </div>
                   <div className="flex-1">
-                    <textarea
-                      placeholder="Ajouter un commentaire..."
+                    <MentionTextarea
+                      placeholder="Ajouter un commentaire... Utilisez @ pour mentionner"
                       value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      className="w-full min-h-[80px] p-3 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                      onChange={setNewComment}
+                      users={projectUsers}
                     />
                     <div className="flex justify-end mt-2">
                       <Button 
