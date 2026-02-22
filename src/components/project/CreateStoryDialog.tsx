@@ -134,7 +134,7 @@ export function CreateStoryDialog({
               fetch(`/api/projects/${projectId}/stories/${storyData.id}/checklists/${checklist.id}/items`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title: item.title }),
+                body: JSON.stringify({ title: item.title, checked: item.checked }),
               })
             )
           );

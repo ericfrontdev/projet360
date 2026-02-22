@@ -5,6 +5,7 @@ import { z } from "zod";
 
 const createItemSchema = z.object({
   title: z.string().min(1).max(500).trim(),
+  checked: z.boolean().optional().default(false),
 });
 
 // POST /api/projects/[id]/stories/[storyId]/checklists/[checklistId]/items
@@ -36,7 +37,7 @@ export async function POST(
 
     const count = await prisma.checklistItem.count({ where: { checklistId } });
     const item = await prisma.checklistItem.create({
-      data: { title: parsed.data.title, checklistId, position: count },
+      data: { title: parsed.data.title, checked: parsed.data.checked, checklistId, position: count },
     });
 
     return NextResponse.json(item, { status: 201 });
