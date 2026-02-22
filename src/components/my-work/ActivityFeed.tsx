@@ -1,24 +1,50 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MessageSquare, AtSign, Activity } from "lucide-react";
 import { useMyWorkStore } from "@/stores/my-work";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+
+type Tab = "all" | "comments" | "mentions";
 
 function formatTime(isoString: string): string {
   const date = new Date(isoString);
   const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
 
-  if (hours < 1) return "À l'instant";
-  if (hours < 24) return `Il y a ${hours}h`;
-  return date.toLocaleDateString("fr-CA");
+  if (diffMin < 1) return "À l'instant";
+  if (diffMin < 60) return `Il y a ${diffMin} min`;
+  if (diffHours < 24) return `Il y a ${diffHours}h`;
+  if (diffDays === 1) return "Hier";
+  if (diffDays < 7) return `Il y a ${diffDays} jours`;
+  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+function dateGroup(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const itemDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (itemDay.getTime() === today.getTime()) return "Aujourd'hui";
+  if (itemDay.getTime() === yesterday.getTime()) return "Hier";
+  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+}
+
+function truncate(text: string, max = 80): string {
+  return text.length > max ? text.slice(0, max) + "…" : text;
 }
 
 export function ActivityFeed() {
-  const { activities, isLoading, fetchMyWork } = useMyWorkStore();
-  const [initial, setInitial] = useState<string>("");
+  const { activities, comments, mentions, isLoading, fetchMyWork } = useMyWorkStore();
+  const [tab, setTab] = useState<Tab>("all");
+  const [initial, setInitial] = useState<string>("?");
 
   useEffect(() => {
     fetchMyWork();
@@ -34,13 +60,28 @@ export function ActivityFeed() {
     });
   }, [fetchMyWork]);
 
+  // Build unified feed for "Toute l'activité"
+  const allItems = [
+    ...activities.map((a) => ({ ...a, type: "activity" as const })),
+    ...comments.map((c) => ({
+      id: c.id,
+      content: `Vous avez commenté sur « ${c.story} » — ${truncate(c.content)}`,
+      time: c.time,
+      type: "comment" as const,
+    })),
+  ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+  const tabs: { key: Tab; label: string; icon: React.ReactNode; count: number }[] = [
+    { key: "all", label: "Toute l'activité", icon: <Activity className="h-3.5 w-3.5" />, count: allItems.length },
+    { key: "comments", label: "Commentaires", icon: <MessageSquare className="h-3.5 w-3.5" />, count: comments.length },
+    { key: "mentions", label: "Mentions", icon: <AtSign className="h-3.5 w-3.5" />, count: mentions.length },
+  ];
+
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base font-semibold">
-            Mon fil d&apos;activité
-          </CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-semibold">Mon fil d&apos;activité</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="py-8 text-center text-sm text-muted-foreground">
@@ -51,53 +92,116 @@ export function ActivityFeed() {
     );
   }
 
+  function renderItems() {
+    if (tab === "comments") {
+      if (comments.length === 0) return <EmptyState label="Aucun commentaire récent" />;
+
+      // Group by date
+      const groups = groupByDate(comments.map((c) => ({ id: c.id, content: c.content, time: c.time, sub: `${c.project} · ${c.story}` })));
+      return renderGroups(groups, initial, true);
+    }
+
+    if (tab === "mentions") {
+      if (mentions.length === 0) return <EmptyState label="Vous n'avez pas encore été mentionné" />;
+
+      const groups = groupByDate(mentions.map((m) => ({ id: m.id, content: m.message, time: m.time, sub: m.title, dimmed: m.read })));
+      return renderGroups(groups, initial, false);
+    }
+
+    // "all"
+    if (allItems.length === 0) return <EmptyState label="Aucune activité récente" />;
+
+    const groups = groupByDate(allItems.map((a) => ({ id: a.id, content: a.content, time: a.time })));
+    return renderGroups(groups, initial, false);
+  }
+
   return (
     <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base font-semibold">
-          Mon fil d&apos;activité
-        </CardTitle>
-        <button className="text-muted-foreground hover:text-foreground">
-          ⚙️
-        </button>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold">Mon fil d&apos;activité</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="mb-4 flex gap-4 border-b pb-2 text-sm">
-          <button className="border-b-2 border-primary pb-2 font-medium">
-            Toute l&apos;activité
-          </button>
-          <button className="pb-2 text-muted-foreground hover:text-foreground">
-            Commentaires
-          </button>
-          <button className="pb-2 text-muted-foreground hover:text-foreground">
-            Mentions
-          </button>
+        {/* Tabs */}
+        <div className="mb-4 flex gap-1 border-b">
+          {tabs.map(({ key, label, icon, count }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 pb-2 text-sm transition-colors",
+                tab === key
+                  ? "border-b-2 border-primary font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {icon}
+              {label}
+              {count > 0 && (
+                <span className={cn(
+                  "rounded-full px-1.5 py-0.5 text-xs",
+                  tab === key ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                )}>
+                  {count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
-        <div className="space-y-4">
-          <div className="text-sm font-medium text-muted-foreground">Aujourd&apos;hui</div>
+        {renderItems()}
+      </CardContent>
+    </Card>
+  );
+}
 
-          {activities.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              Aucune activité récente
-            </p>
-          ) : (
-            activities.map((activity) => (
-              <div key={activity.id} className="flex gap-3">
+type FeedItem = { id: string; content: string; time: string; sub?: string; dimmed?: boolean };
+
+function groupByDate(items: FeedItem[]): { label: string; items: FeedItem[] }[] {
+  const map = new Map<string, FeedItem[]>();
+  for (const item of items) {
+    const label = dateGroup(item.time);
+    if (!map.has(label)) map.set(label, []);
+    map.get(label)!.push(item);
+  }
+  return Array.from(map.entries()).map(([label, items]) => ({ label, items }));
+}
+
+function renderGroups(
+  groups: { label: string; items: FeedItem[] }[],
+  initial: string,
+  showQuote: boolean
+) {
+  return (
+    <div className="space-y-4">
+      {groups.map(({ label, items }) => (
+        <div key={label}>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">{label}</p>
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={item.id} className={cn("flex gap-3", item.dimmed && "opacity-60")}>
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs font-medium text-white">
                   {initial}
                 </div>
-                <div className="flex-1 space-y-1">
-                  <p className="text-sm leading-snug">{activity.content}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatTime(activity.time)}
+                <div className="flex-1 space-y-0.5">
+                  <p className="text-sm leading-snug">
+                    {showQuote ? `« ${item.content} »` : item.content}
                   </p>
+                  {item.sub && (
+                    <p className="text-xs text-muted-foreground">{item.sub}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">{formatTime(item.time)}</p>
                 </div>
               </div>
-            ))
-          )}
+            ))}
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <p className="py-8 text-center text-sm text-muted-foreground">{label}</p>
   );
 }

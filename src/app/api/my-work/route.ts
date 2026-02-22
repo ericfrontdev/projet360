@@ -122,21 +122,15 @@ export async function GET() {
       dueDate: story.dueDate!.toISOString(),
     }));
 
-    // Get recent activity (simplified - in real app would have Activity model)
+    // Get recent activity (recently updated stories authored or assigned to user)
     const recentStories = await prisma.story.findMany({
       where: {
-        authorId: user.id,
+        OR: [{ authorId: user.id }, { assigneeId: user.id }],
       },
-      orderBy: {
-        updatedAt: "desc",
-      },
-      take: 5,
+      orderBy: { updatedAt: "desc" },
+      take: 10,
       include: {
-        project: {
-          select: {
-            name: true,
-          },
-        },
+        project: { select: { name: true } },
       },
     });
 
@@ -144,6 +138,50 @@ export async function GET() {
       id: story.id,
       content: `Vous avez modifié « ${story.title} » dans ${story.project.name}`,
       time: story.updatedAt.toISOString(),
+    }));
+
+    // Get recent comments by the user
+    const userComments = await prisma.comment.findMany({
+      where: { authorId: user.id },
+      include: {
+        story: {
+          select: {
+            id: true,
+            title: true,
+            project: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+
+    const comments = userComments.map((c) => ({
+      id: c.id,
+      content: c.content,
+      storyId: c.story.id,
+      story: c.story.title,
+      projectId: c.story.project.id,
+      project: c.story.project.name,
+      time: c.createdAt.toISOString(),
+    }));
+
+    // Get mentions (notifications of type STORY_MENTION or COMMENT_MENTION)
+    const mentionNotifications = await prisma.notification.findMany({
+      where: {
+        userId: user.id,
+        type: { in: ["STORY_MENTION", "COMMENT_MENTION"] },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+
+    const mentions = mentionNotifications.map((n) => ({
+      id: n.id,
+      title: n.title,
+      message: n.message,
+      time: n.createdAt.toISOString(),
+      read: n.read,
     }));
 
     // Get stats
@@ -167,6 +205,8 @@ export async function GET() {
       checklistItems: formattedChecklistItems,
       upcomingStories: formattedUpcomingStories,
       activities,
+      comments,
+      mentions,
       stats: {
         projects: totalProjects,
         stories: totalStories,
