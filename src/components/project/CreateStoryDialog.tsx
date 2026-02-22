@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, CheckSquare, Link2, Paperclip, ListChecks, GitBranch, Clock, User, Flag, Calendar, Tag, FolderOpen } from "lucide-react";
+import { Plus, CheckSquare, Link2, Paperclip, ListChecks, GitBranch, Clock, User, Flag, Calendar, Tag, FolderOpen, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label as FormLabel } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -68,6 +69,10 @@ export function CreateStoryDialog({
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [selectedLabels, setSelectedLabels] = useState<Label[]>([]);
+  const [showChecklist, setShowChecklist] = useState(false);
+  const [localChecklistItems, setLocalChecklistItems] = useState<{ id: string; title: string; status: "TODO" | "IN_PROGRESS" | "DONE" }[]>([]);
+  const [isAddingLocalItem, setIsAddingLocalItem] = useState(false);
+  const [newLocalItemTitle, setNewLocalItemTitle] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createAnother, setCreateAnother] = useState(false);
@@ -113,6 +118,29 @@ export function CreateStoryDialog({
         throw new Error(data.error || "Échec de la création");
       }
 
+      const storyData = await response.json();
+
+      // Create checklist with local items if any
+      if (localChecklistItems.length > 0) {
+        const clRes = await fetch(`/api/projects/${projectId}/stories/${storyData.id}/checklists`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (clRes.ok) {
+          const checklist = await clRes.json();
+          await Promise.all(
+            localChecklistItems.map((item) =>
+              fetch(`/api/projects/${projectId}/stories/${storyData.id}/checklists/${checklist.id}/items`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: item.title, status: item.status }),
+              })
+            )
+          );
+        }
+      }
+
       if (createAnother) {
         // Reset form but keep dialog open
         setTitle("");
@@ -123,6 +151,8 @@ export function CreateStoryDialog({
         setAssigneeId(null);
         setDueDate(null);
         setSelectedLabels([]);
+        setShowChecklist(false);
+        setLocalChecklistItems([]);
       } else {
         // Close dialog and reset
         setTitle("");
@@ -133,6 +163,8 @@ export function CreateStoryDialog({
         setAssigneeId(null);
         setDueDate(null);
         setSelectedLabels([]);
+        setShowChecklist(false);
+        setLocalChecklistItems([]);
         setOpen(false);
       }
       
@@ -153,6 +185,8 @@ export function CreateStoryDialog({
     setAssigneeId(null);
     setDueDate(null);
     setSelectedLabels([]);
+    setShowChecklist(false);
+    setLocalChecklistItems([]);
     setOpen(false);
   }
 
@@ -242,6 +276,84 @@ export function CreateStoryDialog({
                 />
               </div>
 
+              {/* Checklist Section */}
+              {showChecklist && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <ListChecks className="h-4 w-4" />
+                    Checklist
+                    <span className="text-xs text-muted-foreground font-normal">
+                      {localChecklistItems.length} item{localChecklistItems.length !== 1 ? "s" : ""}
+                    </span>
+                  </h3>
+                  <div className="space-y-1">
+                    {localChecklistItems.map((item) => (
+                      <div key={item.id} className="flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/40">
+                        <Checkbox
+                          checked={item.status === "DONE" ? true : item.status === "IN_PROGRESS" ? "indeterminate" : false}
+                          onCheckedChange={() =>
+                            setLocalChecklistItems((prev) =>
+                              prev.map((i) => i.id === item.id ? {
+                                ...i,
+                                status: i.status === "TODO" ? "IN_PROGRESS" : i.status === "IN_PROGRESS" ? "DONE" : "TODO"
+                              } as typeof i : i)
+                            )
+                          }
+                        />
+                        <span className={cn("flex-1 text-sm", item.status === "DONE" && "line-through text-muted-foreground")}>{item.title}</span>
+                        <button
+                          type="button"
+                          onClick={() => setLocalChecklistItems((prev) => prev.filter((i) => i.id !== item.id))}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {isAddingLocalItem ? (
+                    <div className="space-y-2 pl-1">
+                      <Input
+                        autoFocus
+                        placeholder="Nouvel item..."
+                        value={newLocalItemTitle}
+                        onChange={(e) => setNewLocalItemTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && newLocalItemTitle.trim()) {
+                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim(), status: "TODO" as const }]);
+                            setNewLocalItemTitle("");
+                          }
+                          if (e.key === "Escape") { setIsAddingLocalItem(false); setNewLocalItemTitle(""); }
+                        }}
+                        className="h-8 text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={!newLocalItemTitle.trim()}
+                          onClick={() => {
+                            if (!newLocalItemTitle.trim()) return;
+                            setLocalChecklistItems((prev) => [...prev, { id: crypto.randomUUID(), title: newLocalItemTitle.trim(), status: "TODO" as const }]);
+                            setNewLocalItemTitle("");
+                          }}
+                        >
+                          Créer
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setIsAddingLocalItem(false); setNewLocalItemTitle(""); }}>
+                          Annuler
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => setIsAddingLocalItem(true)}>
+                      + Ajouter un item
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Sous-tâches Section */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -267,7 +379,13 @@ export function CreateStoryDialog({
               <div className="space-y-3">
                 <FormLabel className="text-sm text-muted-foreground">Add to Story</FormLabel>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="sm" className="text-xs" disabled>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn("text-xs", showChecklist && "border-primary text-primary")}
+                    onClick={() => setShowChecklist((v) => !v)}
+                  >
                     <ListChecks className="h-3 w-3 mr-1" />
                     Checklist
                   </Button>

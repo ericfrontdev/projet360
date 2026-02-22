@@ -85,6 +85,22 @@ export interface Label {
   color: string;
 }
 
+export type ChecklistItemStatus = "TODO" | "IN_PROGRESS" | "DONE";
+
+export interface ChecklistItem {
+  id: string;
+  title: string;
+  status: ChecklistItemStatus;
+  position: number;
+}
+
+export interface Checklist {
+  id: string;
+  title: string;
+  position: number;
+  items: ChecklistItem[];
+}
+
 export const columns = [
   { id: "TODO", title: "À faire", color: "bg-slate-400" },
   { id: "IN_PROGRESS", title: "En cours", color: "bg-blue-500" },
