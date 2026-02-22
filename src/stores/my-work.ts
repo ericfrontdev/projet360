@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+const STALE_TIME_MS = 30_000; // 30 secondes
+
 interface Story {
   id: string;
   title: string;
@@ -40,12 +42,13 @@ interface MyWorkState {
   stats: Stats;
   isLoading: boolean;
   error: string | null;
+  lastFetched: number | null;
 
-  fetchMyWork: () => Promise<void>;
+  fetchMyWork: (force?: boolean) => Promise<void>;
   updateChecklistItemStatus: (itemId: string, status: string) => void;
 }
 
-export const useMyWorkStore = create<MyWorkState>((set) => ({
+export const useMyWorkStore = create<MyWorkState>((set, get) => ({
   stories: [],
   checklistItems: [],
   activities: [],
@@ -56,8 +59,17 @@ export const useMyWorkStore = create<MyWorkState>((set) => ({
   },
   isLoading: false,
   error: null,
+  lastFetched: null,
 
-  fetchMyWork: async () => {
+  fetchMyWork: async (force = false) => {
+    const { isLoading, lastFetched } = get();
+
+    // Ne pas refetcher si déjà en cours
+    if (isLoading) return;
+
+    // Ne pas refetcher si les données sont fraîches (< 30s)
+    if (!force && lastFetched && Date.now() - lastFetched < STALE_TIME_MS) return;
+
     set({ isLoading: true, error: null });
     try {
       const response = await fetch("/api/my-work");
@@ -69,6 +81,7 @@ export const useMyWorkStore = create<MyWorkState>((set) => ({
         activities: data.activities,
         stats: data.stats,
         isLoading: false,
+        lastFetched: Date.now(),
       });
     } catch (error) {
       set({ error: (error as Error).message, isLoading: false });
