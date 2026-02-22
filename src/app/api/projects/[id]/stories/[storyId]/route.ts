@@ -110,7 +110,7 @@ export async function PATCH(
   if (response) return response;
 
   try {
-    const { title, description, status, priority, assignee } = data;
+    const { title, description, status, priority, assignee, dueDate } = data;
 
     // Verify project exists and user has access (owner or member)
     const project = await prisma.project.findFirst({
@@ -150,6 +150,7 @@ export async function PATCH(
         ...(status !== undefined && { status }),
         ...(priority !== undefined && { priority }),
         ...(assignee !== undefined && { assigneeId: assignee ?? null }),
+        ...(dueDate !== undefined && { dueDate: dueDate ?? null }),
       },
       include: {
         assignee: {

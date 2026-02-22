@@ -65,6 +65,7 @@ export const createStorySchema = z.object({
   type: StoryTypeSchema.optional(),
   priority: z.number().int().min(0).max(3).optional(),
   assigneeId: z.string().uuid().nullish(),
+  dueDate: z.coerce.date().nullish(),
 });
 
 export const updateStorySchema = z.object({
@@ -81,6 +82,7 @@ export const updateStorySchema = z.object({
   status: StoryStatusSchema.optional(),
   priority: z.number().int().min(0).max(3).optional(),
   assignee: z.string().nullable().optional(),
+  dueDate: z.coerce.date().nullish(),
 });
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
