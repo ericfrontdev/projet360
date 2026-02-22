@@ -71,6 +71,7 @@ export async function GET(
         assignee: {
           select: { name: true, email: true },
         },
+        labels: true,
       },
     });
 

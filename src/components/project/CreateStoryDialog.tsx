@@ -12,7 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label as FormLabel } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -24,8 +24,9 @@ import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { cn, getInitials } from "@/lib/utils";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
-import type { ProjectUser } from "@/components/project/kanban/types";
+import type { ProjectUser, Label } from "@/components/project/kanban/types";
 import { DatePicker } from "@/components/ui/date-picker";
+import { LabelSelector } from "@/components/project/LabelSelector";
 
 interface CreateStoryDialogProps {
   projectId: string;
@@ -66,12 +67,18 @@ export function CreateStoryDialog({
   const [priority, setPriority] = useState(2);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState<Date | null>(null);
+  const [selectedLabels, setSelectedLabels] = useState<Label[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createAnother, setCreateAnother] = useState(false);
 
   const { data: projectUsers = [] } = useSWR<ProjectUser[]>(
     open ? `/api/projects/${projectId}/members` : null,
+    fetcher
+  );
+
+  const { data: projectLabels = [], mutate: mutateLabels } = useSWR<Label[]>(
+    open ? `/api/projects/${projectId}/labels` : null,
     fetcher
   );
 
@@ -97,6 +104,7 @@ export function CreateStoryDialog({
           priority,
           assigneeId: assigneeId ?? undefined,
           dueDate: dueDate?.toISOString() ?? undefined,
+          labelIds: selectedLabels.map((l) => l.id),
         }),
       });
 
@@ -114,6 +122,7 @@ export function CreateStoryDialog({
         setPriority(2);
         setAssigneeId(null);
         setDueDate(null);
+        setSelectedLabels([]);
       } else {
         // Close dialog and reset
         setTitle("");
@@ -123,6 +132,7 @@ export function CreateStoryDialog({
         setPriority(2);
         setAssigneeId(null);
         setDueDate(null);
+        setSelectedLabels([]);
         setOpen(false);
       }
       
@@ -142,7 +152,35 @@ export function CreateStoryDialog({
     setPriority(2);
     setAssigneeId(null);
     setDueDate(null);
+    setSelectedLabels([]);
     setOpen(false);
+  }
+
+  function handleToggleLabel(label: Label) {
+    setSelectedLabels((prev) =>
+      prev.some((l) => l.id === label.id)
+        ? prev.filter((l) => l.id !== label.id)
+        : [...prev, label]
+    );
+  }
+
+  async function handleCreateAndToggleLabel(name: string, color: string) {
+    const res = await fetch(`/api/projects/${projectId}/labels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, color }),
+    });
+    if (res.ok) {
+      const newLabel: Label = await res.json();
+      mutateLabels((prev) => [...(prev ?? []), newLabel], false);
+      setSelectedLabels((prev) => [...prev, newLabel]);
+    }
+  }
+
+  async function handleDeleteLabel(labelId: string) {
+    mutateLabels((prev) => prev?.filter((l) => l.id !== labelId), false);
+    setSelectedLabels((prev) => prev.filter((l) => l.id !== labelId));
+    await fetch(`/api/projects/${projectId}/labels/${labelId}`, { method: "DELETE" });
   }
 
   const currentStatus = statusOptions.find((s) => s.id === status);
@@ -178,9 +216,9 @@ export function CreateStoryDialog({
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Title */}
               <div className="space-y-2">
-                <Label htmlFor="title" className="text-sm text-muted-foreground">
+                <FormLabel htmlFor="title" className="text-sm text-muted-foreground">
                   Titre de la Story
-                </Label>
+                </FormLabel>
                 <Input
                   id="title"
                   value={title}
@@ -193,9 +231,9 @@ export function CreateStoryDialog({
 
               {/* Description */}
               <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">
+                <FormLabel className="text-sm text-muted-foreground">
                   Description <span className="text-muted-foreground/60">Optionnel</span>
-                </Label>
+                </FormLabel>
                 <RichTextEditor
                   value={description}
                   onChange={setDescription}
@@ -208,7 +246,7 @@ export function CreateStoryDialog({
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <CheckSquare className="h-4 w-4 text-muted-foreground" />
-                  <Label className="text-sm">Sous-tâches</Label>
+                  <FormLabel className="text-sm">Sous-tâches</FormLabel>
                 </div>
                 <Button
                   type="button"
@@ -227,7 +265,7 @@ export function CreateStoryDialog({
 
               {/* Ajouter à la Story */}
               <div className="space-y-3">
-                <Label className="text-sm text-muted-foreground">Add to Story</Label>
+                <FormLabel className="text-sm text-muted-foreground">Add to Story</FormLabel>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="outline" size="sm" className="text-xs" disabled>
                     <ListChecks className="h-3 w-3 mr-1" />
@@ -399,10 +437,18 @@ export function CreateStoryDialog({
 
               {/* Labels */}
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">Labels</label>
-                <Button variant="outline" size="sm" className="text-xs w-full" disabled>
-                  Ajouter des labels
-                </Button>
+                <label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Tag className="h-3 w-3" />
+                  Labels
+                </label>
+                <LabelSelector
+                  projectId={projectId}
+                  selectedLabels={selectedLabels}
+                  projectLabels={projectLabels}
+                  onToggle={handleToggleLabel}
+                  onCreateAndToggle={handleCreateAndToggleLabel}
+                  onDelete={handleDeleteLabel}
+                />
               </div>
             </div>
           </div>

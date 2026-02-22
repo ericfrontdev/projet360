@@ -102,7 +102,7 @@ export async function POST(
   if (response) return response;
 
   try {
-    const { title, description, status = "BACKLOG", type, priority, assigneeId, dueDate } = data;
+    const { title, description, status = "BACKLOG", type, priority, assigneeId, dueDate, labelIds } = data;
 
     // Verify project exists and user has access (owner or member)
     const project = await prisma.project.findFirst({
@@ -162,6 +162,7 @@ export async function POST(
         ...(priority !== undefined && { priority }),
         ...(assigneeId ? { assigneeId } : {}),
         ...(dueDate !== undefined && { dueDate: dueDate ?? null }),
+        ...(labelIds.length > 0 && { labels: { connect: labelIds.map((id) => ({ id })) } }),
         projectId,
         authorId: user.id,
       },

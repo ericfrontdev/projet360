@@ -47,6 +47,7 @@ export interface Story {
     name: string | null;
     email: string;
   } | null;
+  labels?: Label[];
 }
 
 export interface BoardTabProps {
@@ -76,6 +77,12 @@ export interface ProjectUser {
   id: string;
   name: string | null;
   email: string;
+}
+
+export interface Label {
+  id: string;
+  name: string;
+  color: string;
 }
 
 export const columns = [
