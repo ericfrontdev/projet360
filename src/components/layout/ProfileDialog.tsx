@@ -58,6 +58,7 @@ export function ProfileDialog({ open, onOpenChange, onNameUpdated }: ProfileDial
 
   // Avatar upload
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -127,6 +128,7 @@ export function ProfileDialog({ open, onOpenChange, onNameUpdated }: ProfileDial
     if (!file || !profile) return;
 
     setIsUploadingAvatar(true);
+    setAvatarError(null);
     try {
       const supabase = createClient();
       const ext = file.name.split(".").pop();
@@ -136,21 +138,28 @@ export function ProfileDialog({ open, onOpenChange, onNameUpdated }: ProfileDial
         .from("avatars")
         .upload(path, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        setAvatarError(`Erreur d'upload : ${uploadError.message}`);
+        return;
+      }
 
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      // Cache-busting pour forcer le rechargement de la nouvelle image
+      const urlWithBust = `${publicUrl}?t=${Date.now()}`;
 
       const res = await fetch("/api/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ avatarUrl: publicUrl }),
+        body: JSON.stringify({ avatarUrl: urlWithBust }),
       });
       if (res.ok) {
-        setProfile((prev) => prev ? { ...prev, avatarUrl: publicUrl } : prev);
+        setProfile((prev) => prev ? { ...prev, avatarUrl: urlWithBust } : prev);
         router.refresh();
+      } else {
+        setAvatarError("Impossible de sauvegarder l'URL de l'avatar.");
       }
-    } catch {
-      // silently fail — storage may not be configured
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "Erreur inconnue lors de l'upload.");
     } finally {
       setIsUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -207,6 +216,9 @@ export function ProfileDialog({ open, onOpenChange, onNameUpdated }: ProfileDial
               <div>
                 <p className="font-semibold">{displayName}</p>
                 <p className="text-sm text-muted-foreground">{profile.email}</p>
+                {avatarError && (
+                  <p className="text-xs text-destructive mt-1">{avatarError}</p>
+                )}
                 {profile.createdAt && (
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Membre depuis {new Date(profile.createdAt).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
