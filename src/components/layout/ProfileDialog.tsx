@@ -134,9 +134,23 @@ export function ProfileDialog({ open, onOpenChange, onNameUpdated }: ProfileDial
       const ext = file.name.split(".").pop();
       const path = `${profile.id}/avatar.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
+      let { error: uploadError } = await supabase.storage
         .from("avatars")
         .upload(path, file, { upsert: true });
+
+      // Si le bucket n'existe pas, on le crée côté serveur puis on réessaie
+      if (uploadError?.message?.toLowerCase().includes("bucket not found")) {
+        const setupRes = await fetch("/api/setup/storage", { method: "POST" });
+        if (!setupRes.ok) {
+          const body = await setupRes.json();
+          setAvatarError(`Impossible de créer le bucket : ${body.error ?? "erreur inconnue"}`);
+          return;
+        }
+        const retry = await supabase.storage
+          .from("avatars")
+          .upload(path, file, { upsert: true });
+        uploadError = retry.error;
+      }
 
       if (uploadError) {
         setAvatarError(`Erreur d'upload : ${uploadError.message}`);
