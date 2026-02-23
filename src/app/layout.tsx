@@ -10,8 +10,8 @@ const fontSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "StoryFirst",
-  description: "Story-First project management",
+  title: "Projet 360",
+  description: "Gestionnaire de projet",
 };
 
 export default function RootLayout({

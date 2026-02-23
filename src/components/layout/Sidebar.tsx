@@ -42,7 +42,7 @@ export function Sidebar() {
           <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-sm font-bold text-primary-foreground">
             S
           </div>
-          <span className="font-semibold">StoryFirst</span>
+          <span className="font-semibold">Projet 360</span>
         </Link>
       </div>
 
