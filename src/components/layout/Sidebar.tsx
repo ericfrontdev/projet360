@@ -40,9 +40,9 @@ export function Sidebar() {
       <div className="flex h-14 items-center border-b px-4">
         <Link href="/" className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-sm font-bold text-primary-foreground">
-            S
+            P
           </div>
-          <span className="font-semibold">StoryFirst</span>
+          <span className="font-semibold">Projet 360</span>
         </Link>
       </div>
 
