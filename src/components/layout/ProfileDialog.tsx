@@ -130,48 +130,19 @@ export function ProfileDialog({ open, onOpenChange, onNameUpdated }: ProfileDial
     setIsUploadingAvatar(true);
     setAvatarError(null);
     try {
-      const supabase = createClient();
-      const ext = file.name.split(".").pop();
-      const path = `${profile.id}/avatar.${ext}`;
+      const form = new FormData();
+      form.append("file", file);
 
-      let { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, { upsert: true });
+      const res = await fetch("/api/users/me/avatar", { method: "POST", body: form });
+      const body = await res.json();
 
-      // Si le bucket n'existe pas, on le crée côté serveur puis on réessaie
-      if (uploadError?.message?.toLowerCase().includes("bucket not found")) {
-        const setupRes = await fetch("/api/setup/storage", { method: "POST" });
-        if (!setupRes.ok) {
-          const body = await setupRes.json();
-          setAvatarError(`Impossible de créer le bucket : ${body.error ?? "erreur inconnue"}`);
-          return;
-        }
-        const retry = await supabase.storage
-          .from("avatars")
-          .upload(path, file, { upsert: true });
-        uploadError = retry.error;
-      }
-
-      if (uploadError) {
-        setAvatarError(`Erreur d'upload : ${uploadError.message}`);
+      if (!res.ok) {
+        setAvatarError(body.error ?? "Erreur lors de l'upload.");
         return;
       }
 
-      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-      // Cache-busting pour forcer le rechargement de la nouvelle image
-      const urlWithBust = `${publicUrl}?t=${Date.now()}`;
-
-      const res = await fetch("/api/users/me", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ avatarUrl: urlWithBust }),
-      });
-      if (res.ok) {
-        setProfile((prev) => prev ? { ...prev, avatarUrl: urlWithBust } : prev);
-        router.refresh();
-      } else {
-        setAvatarError("Impossible de sauvegarder l'URL de l'avatar.");
-      }
+      setProfile((prev) => prev ? { ...prev, avatarUrl: body.avatarUrl } : prev);
+      router.refresh();
     } catch (err) {
       setAvatarError(err instanceof Error ? err.message : "Erreur inconnue lors de l'upload.");
     } finally {
