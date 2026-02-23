@@ -3,8 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { MoreHorizontal, Layers, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { StoryDetailDialog } from "./StoryDetailDialog";
 import { EditStoryDialog } from "./EditStoryDialog";
+import { FilterSortBar, applyFiltersAndSort, DEFAULT_FILTER, DEFAULT_SORT } from "./FilterSortBar";
+import type { FilterState, SortState } from "./FilterSortBar";
+import type { ProjectUser } from "./kanban/types";
 import {
   Table,
   TableBody,
@@ -39,6 +44,14 @@ export function BacklogTab({ projectId }: BacklogTabProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER);
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
+
+  const { data: projectUsers = [] } = useSWR<ProjectUser[]>(
+    `/api/projects/${projectId}/members`,
+    fetcher
+  );
+
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -66,8 +79,9 @@ export function BacklogTab({ projectId }: BacklogTabProps) {
     }
   }
 
-  const backlogStories = stories.filter((s) => s.status === "BACKLOG");
-  const boardStories = stories.filter((s) => s.status !== "BACKLOG" && s.status !== "ARCHIVED");
+  const filteredStories = applyFiltersAndSort(stories, filter, sort);
+  const backlogStories = filteredStories.filter((s) => s.status === "BACKLOG");
+  const boardStories = filteredStories.filter((s) => s.status !== "BACKLOG" && s.status !== "ARCHIVED");
 
   function handleView(story: Story) {
     setSelectedStory(story);
@@ -86,6 +100,15 @@ export function BacklogTab({ projectId }: BacklogTabProps) {
 
   return (
     <div className="space-y-8">
+      <FilterSortBar
+        projectUsers={projectUsers}
+        filter={filter}
+        sort={sort}
+        availableStatuses={["BACKLOG", "TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"]}
+        onFilterChange={setFilter}
+        onSortChange={setSort}
+      />
+
       {/* Table Backlog */}
       <div>
         <div className="mb-3 flex items-center justify-between">
