@@ -31,9 +31,10 @@ interface BacklogTabProps {
 export function BacklogTab({ projectId }: BacklogTabProps) {
   const stories = useProjectStore((state) => state.stories);
   const hasMoreStories = useProjectStore((state) => state.hasMoreStories);
+  const isLoadingMore = useProjectStore((state) => state.isLoadingMore);
   const updateStoryStatus = useProjectStore((state) => state.updateStoryStatus);
   const updateStoryFields = useProjectStore((state) => state.updateStoryFields);
-  const appendStories = useProjectStore((state) => state.appendStories);
+  const loadMoreStories = useProjectStore((state) => state.loadMoreStories);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -41,8 +42,6 @@ export function BacklogTab({ projectId }: BacklogTabProps) {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
   // Auto-open story dialog when ?story= param is present (e.g. from mention click)
   const storyIdFromUrl = searchParams.get("story");
   const autoOpenedRef = useRef<string | null>(null);
@@ -64,22 +63,6 @@ export function BacklogTab({ projectId }: BacklogTabProps) {
       const params = new URLSearchParams(searchParams.toString());
       params.delete("story");
       router.replace(`?${params.toString()}`, { scroll: false });
-    }
-  }
-
-  async function handleLoadMore() {
-    const nonArchivedCount = stories.filter((s) => s.status !== "ARCHIVED").length;
-    setIsLoadingMore(true);
-    try {
-      const res = await fetch(
-        `/api/projects/${projectId}/stories?skip=${nonArchivedCount}&take=50`
-      );
-      if (res.ok) {
-        const { stories: newStories, hasMore } = await res.json();
-        appendStories(newStories, hasMore);
-      }
-    } finally {
-      setIsLoadingMore(false);
     }
   }
 
@@ -270,7 +253,7 @@ export function BacklogTab({ projectId }: BacklogTabProps) {
         <div className="flex justify-center pt-2">
           <Button
             variant="outline"
-            onClick={handleLoadMore}
+            onClick={loadMoreStories}
             disabled={isLoadingMore}
           >
             {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

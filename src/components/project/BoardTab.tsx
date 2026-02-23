@@ -19,7 +19,8 @@ import {
   defaultDropAnimationSideEffects,
   DropAnimation,
 } from "@dnd-kit/core";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { StoryDetailDialog } from "./StoryDetailDialog";
 import { KanbanColumn } from "./kanban/KanbanColumn";
 import { StoryCardOverlay } from "./kanban/StoryCardOverlay";
@@ -41,6 +42,9 @@ export function BoardTab({ projectId }: BoardTabProps) {
 
   // Store reads
   const storeStories = useProjectStore((state) => state.stories);
+  const hasMoreStories = useProjectStore((state) => state.hasMoreStories);
+  const isLoadingMore = useProjectStore((state) => state.isLoadingMore);
+  const loadMoreStories = useProjectStore((state) => state.loadMoreStories);
   const updateStoryStatus = useProjectStore((state) => state.updateStoryStatus);
   const updateStoryPriority = useProjectStore((state) => state.updateStoryPriority);
   const updateStoryAssignee = useProjectStore((state) => state.updateStoryAssignee);
@@ -356,6 +360,19 @@ export function BoardTab({ projectId }: BoardTabProps) {
           {activeStory ? <StoryCardOverlay story={activeStory} /> : null}
         </DragOverlay>
       </DndContext>
+
+      {hasMoreStories && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            onClick={loadMoreStories}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Charger plus de stories
+          </Button>
+        </div>
+      )}
 
       <StoryDetailDialog
         story={selectedStory}
