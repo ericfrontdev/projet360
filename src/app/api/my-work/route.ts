@@ -13,37 +13,77 @@ export async function GET() {
   }
 
   try {
-    // Get stories assigned to user or created by user
-    const stories = await prisma.story.findMany({
-      where: {
-        OR: [
-          { authorId: user.id },
-          { assigneeId: user.id },
-        ],
-        status: {
-          in: ["TODO", "IN_PROGRESS"],
-        },
-      },
-      include: {
-        project: {
-          select: {
-            name: true,
-          },
-        },
-        tasks: {
-          select: {
-            id: true,
-            status: true,
-          },
-        },
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-      take: 10,
-    });
+    const now = new Date();
+    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const userStoryFilter = { OR: [{ authorId: user.id }, { assigneeId: user.id }] };
 
-    // Format stories with subtask counts
+    const [
+      stories,
+      checklistItems,
+      upcomingStories,
+      userComments,
+      mentionNotifications,
+      totalProjects,
+      totalStories,
+      inProgressStories,
+    ] = await Promise.all([
+      prisma.story.findMany({
+        where: { ...userStoryFilter, status: { in: ["TODO", "IN_PROGRESS"] } },
+        include: {
+          project: { select: { name: true } },
+          tasks: { select: { id: true, status: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+      }),
+      prisma.checklistItem.findMany({
+        where: { checklist: { story: userStoryFilter } },
+        include: {
+          checklist: {
+            select: {
+              title: true,
+              story: {
+                select: {
+                  id: true,
+                  title: true,
+                  project: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+        take: 20,
+      }),
+      prisma.story.findMany({
+        where: { ...userStoryFilter, dueDate: { not: null, lte: in30Days }, status: { not: "DONE" } },
+        include: { project: { select: { name: true } } },
+        orderBy: { dueDate: "asc" },
+      }),
+      prisma.comment.findMany({
+        where: { authorId: user.id },
+        include: {
+          story: {
+            select: {
+              id: true,
+              title: true,
+              project: { select: { id: true, name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      prisma.notification.findMany({
+        where: { userId: user.id, type: { in: ["STORY_MENTION", "COMMENT_MENTION"] } },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      prisma.project.count({ where: { ownerId: user.id } }),
+      prisma.story.count({ where: { authorId: user.id } }),
+      prisma.story.count({ where: { authorId: user.id, status: "IN_PROGRESS" } }),
+    ]);
+
     const formattedStories = stories.map((story) => ({
       id: story.id,
       title: story.title,
@@ -52,36 +92,6 @@ export async function GET() {
       subtasks: story.tasks.length,
       completedSubtasks: story.tasks.filter((t) => t.status === "DONE").length,
     }));
-
-    // Get checklist items (TODO/IN_PROGRESS) from stories authored or assigned to user
-    const checklistItems = await prisma.checklistItem.findMany({
-      where: {
-        checklist: {
-          story: {
-            OR: [
-              { authorId: user.id },
-              { assigneeId: user.id },
-            ],
-          },
-        },
-      },
-      include: {
-        checklist: {
-          select: {
-            title: true,
-            story: {
-              select: {
-                id: true,
-                title: true,
-                project: { select: { id: true, name: true } },
-              },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-      take: 20,
-    });
 
     const formattedChecklistItems = checklistItems.map((item) => ({
       id: item.id,
@@ -95,25 +105,6 @@ export async function GET() {
       project: item.checklist.story.project.name,
     }));
 
-    // Get stories with upcoming due dates (next 30 days)
-    const now = new Date();
-    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    const upcomingStories = await prisma.story.findMany({
-      where: {
-        OR: [
-          { authorId: user.id },
-          { assigneeId: user.id },
-        ],
-        dueDate: { not: null, lte: in30Days },
-        status: { not: "DONE" },
-      },
-      include: {
-        project: { select: { name: true } },
-      },
-      orderBy: { dueDate: "asc" },
-    });
-
     const formattedUpcomingStories = upcomingStories.map((story) => ({
       id: story.id,
       title: story.title,
@@ -121,22 +112,6 @@ export async function GET() {
       project: story.project.name,
       dueDate: story.dueDate!.toISOString(),
     }));
-
-    // Get recent comments by the user
-    const userComments = await prisma.comment.findMany({
-      where: { authorId: user.id },
-      include: {
-        story: {
-          select: {
-            id: true,
-            title: true,
-            project: { select: { id: true, name: true } },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
 
     const comments = userComments.map((c) => ({
       id: c.id,
@@ -148,21 +123,9 @@ export async function GET() {
       time: c.createdAt.toISOString(),
     }));
 
-    // Get mentions (notifications of type STORY_MENTION or COMMENT_MENTION)
-    const mentionNotifications = await prisma.notification.findMany({
-      where: {
-        userId: user.id,
-        type: { in: ["STORY_MENTION", "COMMENT_MENTION"] },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
-
     const mentions = mentionNotifications.map((n) => {
       const raw = n.data;
-      const data = (typeof raw === "string"
-        ? JSON.parse(raw)
-        : raw) as Record<string, string> | null;
+      const data = (typeof raw === "string" ? JSON.parse(raw) : raw) as Record<string, string> | null;
       return {
         id: n.id,
         title: n.title,
@@ -174,33 +137,13 @@ export async function GET() {
       };
     });
 
-    // Get stats
-    const totalProjects = await prisma.project.count({
-      where: { ownerId: user.id },
-    });
-
-    const totalStories = await prisma.story.count({
-      where: { authorId: user.id },
-    });
-
-    const inProgressStories = await prisma.story.count({
-      where: {
-        authorId: user.id,
-        status: "IN_PROGRESS",
-      },
-    });
-
     return NextResponse.json({
       stories: formattedStories,
       checklistItems: formattedChecklistItems,
       upcomingStories: formattedUpcomingStories,
       comments,
       mentions,
-      stats: {
-        projects: totalProjects,
-        stories: totalStories,
-        inProgress: inProgressStories,
-      },
+      stats: { projects: totalProjects, stories: totalStories, inProgress: inProgressStories },
     });
   } catch {
     return NextResponse.json(
