@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, UserPlus, Loader2, Search, Check } from "lucide-react";
+import { UserPlus, Loader2, Search, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -39,8 +39,8 @@ export function AddMemberDialog({
   const [users, setUsers] = useState<User[]>([]);
   const [existingMembers, setExistingMembers] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -52,10 +52,23 @@ export function AddMemberDialog({
       setSearchQuery("");
       setUsers([]);
       setSelectedUserId(null);
+      setHasSearched(false);
       setError(null);
       setSuccess(false);
     }
   }, [open, projectId]);
+
+  // Debounced search as user types
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setUsers([]);
+      setHasSearched(false);
+      return;
+    }
+    const timer = setTimeout(() => searchUsers(), 300);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   async function fetchExistingMembers() {
     try {
@@ -73,6 +86,7 @@ export function AddMemberDialog({
     if (!searchQuery.trim()) return;
 
     setIsSearching(true);
+    setUsers([]);
     setError(null);
 
     try {
@@ -88,6 +102,7 @@ export function AddMemberDialog({
       setError("Erreur réseau");
     } finally {
       setIsSearching(false);
+      setHasSearched(true);
     }
   }
 
@@ -124,14 +139,6 @@ export function AddMemberDialog({
     }
   }
 
-  // Handle Enter key in search
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      searchUsers();
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -147,25 +154,18 @@ export function AddMemberDialog({
 
         <div className="space-y-4 py-4">
           {/* Search */}
-          <div className="flex gap-2">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Nom, email..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onChange={(e) => { setSearchQuery(e.target.value); setSelectedUserId(null); setHasSearched(false); }}
               disabled={isAdding || success}
+              className="pl-9"
             />
-            <Button
-              variant="outline"
-              onClick={searchUsers}
-              disabled={!searchQuery.trim() || isSearching || isAdding || success}
-            >
-              {isSearching ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Search size={16} />
-              )}
-            </Button>
+            {isSearching && (
+              <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" />
+            )}
           </div>
 
           {/* Results */}
@@ -207,7 +207,7 @@ export function AddMemberDialog({
           )}
 
           {/* No results */}
-          {searchQuery && !isSearching && users.length === 0 && !success && (
+          {hasSearched && !isSearching && users.length === 0 && !success && (
             <div className="text-center py-4 text-muted-foreground">
               <p className="text-sm">Aucun utilisateur trouvé</p>
               <p className="text-xs mt-1">
