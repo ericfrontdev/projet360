@@ -237,8 +237,9 @@ export function applyFiltersAndSort<T extends FilterableStory>(
       }
       if (sort.field === "dueDate") {
         // nulls en dernier dans les deux sens
-        const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-        const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        const nullVal = sort.direction === "asc" ? Infinity : -Infinity;
+        const aTime = a.dueDate ? new Date(a.dueDate).getTime() : nullVal;
+        const bTime = b.dueDate ? new Date(b.dueDate).getTime() : nullVal;
         return sort.direction === "asc" ? aTime - bTime : bTime - aTime;
       }
       return 0;
