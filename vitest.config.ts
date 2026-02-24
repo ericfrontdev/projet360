@@ -5,10 +5,16 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    exclude: ["node_modules", "e2e/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
-      include: ["src/lib/schemas.ts", "src/stores/project.ts"],
+      include: [
+        "src/lib/schemas.ts",
+        "src/stores/project.ts",
+        "src/lib/ensure-user-exists.ts",
+        "src/components/project/FilterSortBar.tsx",
+      ],
     },
   },
   resolve: {
