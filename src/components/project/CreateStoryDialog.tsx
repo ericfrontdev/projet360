@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, CheckSquare, Link2, Paperclip, ListChecks, GitBranch, Clock, User, Flag, Calendar, Tag, FolderOpen, X, Circle, Check, MoreHorizontal, Trash2 } from "lucide-react";
+import { Plus, CheckSquare, Link2, Paperclip, ListChecks, GitBranch, Clock, User, Flag, Calendar, Tag, X, Circle, Check, MoreHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -781,16 +781,6 @@ export function CreateStoryDialog({
 
               {/* Placeholder sections matching the design */}
               <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <FolderOpen className="h-3 w-3" />
-                    Epic
-                  </label>
-                  <Button variant="ghost" className="w-full justify-start h-auto py-1.5 px-2 -ml-2 font-normal text-muted-foreground" disabled>
-                    Aucun
-                  </Button>
-                </div>
-
                 <div className="space-y-1.5">
                   <label className="text-xs text-muted-foreground flex items-center gap-1">
                     <User className="h-3 w-3" />
