@@ -52,6 +52,7 @@ interface ProjectState {
   ) => Promise<void>;
   updateTaskStatus: (storyId: string, taskId: string, status: TaskStatus) => Promise<void>;
   setStoryTasksCache: (storyId: string, tasks: Task[]) => void;
+  syncStorySubtasks: (storyId: string, subtasks: number, completedSubtasks: number) => void;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -303,13 +304,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!projectId) return;
 
     const previousTasks = storyTasks[storyId];
+    const updatedTasks = (storyTasks[storyId] || []).map((t) =>
+      t.id === taskId ? { ...t, status } : t
+    );
+    const completedSubtasks = updatedTasks.filter((t) => t.status === "DONE").length;
     set((state) => ({
-      storyTasks: {
-        ...state.storyTasks,
-        [storyId]: (state.storyTasks[storyId] || []).map((t) =>
-          t.id === taskId ? { ...t, status } : t
-        ),
-      },
+      storyTasks: { ...state.storyTasks, [storyId]: updatedTasks },
+      stories: state.stories.map((s) =>
+        s.id === storyId ? { ...s, completedSubtasks } : s
+      ),
     }));
 
     try {
@@ -336,5 +339,12 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setStoryTasksCache: (storyId, tasks) =>
     set((state) => ({
       storyTasks: { ...state.storyTasks, [storyId]: tasks },
+    })),
+
+  syncStorySubtasks: (storyId, subtasks, completedSubtasks) =>
+    set((state) => ({
+      stories: state.stories.map((s) =>
+        s.id === storyId ? { ...s, subtasks, completedSubtasks } : s
+      ),
     })),
 }));
