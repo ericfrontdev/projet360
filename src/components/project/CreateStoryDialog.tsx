@@ -52,8 +52,8 @@ const statusOptions = [
 ];
 
 const typeOptions = [
-  { id: "FEATURE", label: "Feature", icon: "✨", color: "bg-purple-500" },
-  { id: "FIX", label: "Fix", icon: "🐛", color: "bg-red-500" },
+  { id: "FEATURE", label: "Feature", color: "bg-purple-500" },
+  { id: "FIX", label: "Fix", color: "bg-red-500" },
 ];
 
 const priorityOptions = [
@@ -733,21 +733,18 @@ export function CreateStoryDialog({
                 </label>
                 {isEditMode ? (
                   <div className="flex items-center py-1.5 px-2 text-sm text-muted-foreground">
-                    <span className="mr-2">{currentType?.icon}</span>
                     {currentType?.label}
                   </div>
                 ) : (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="w-full justify-start h-auto py-1.5 px-2 -ml-2 font-normal">
-                        <span className="mr-2">{currentType?.icon}</span>
                         {currentType?.label}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-48">
                       {typeOptions.map((t) => (
                         <DropdownMenuItem key={t.id} onClick={() => setType(t.id as "FEATURE" | "FIX")}>
-                          <span className="mr-2">{t.icon}</span>
                           {t.label}
                         </DropdownMenuItem>
                       ))}
