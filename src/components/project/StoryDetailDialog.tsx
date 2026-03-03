@@ -150,6 +150,7 @@ export function StoryDetailDialog({
   scrollToComments = false,
 }: StoryDetailDialogProps) {
   const isAdmin = useProjectStore((s) => s.userRole) !== "MEMBER";
+  const syncStorySubtasks = useProjectStore((s) => s.syncStorySubtasks);
 
   const storyKey = open && story ? `/api/projects/${projectId}/stories/${story.id}` : null;
   const commentsKey = open && story ? `/api/projects/${projectId}/stories/${story.id}/comments` : null;
@@ -175,6 +176,14 @@ export function StoryDetailDialog({
   const [currentUserName, setCurrentUserName] = useState<string | null>(null);
   const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
   const commentsRef = useRef<HTMLDivElement>(null);
+
+  // Sync subtask counts to Zustand store whenever tasks change (creation, deletion, status change)
+  const subtaskCount = storyDetail?.tasks.length;
+  const completedSubtaskCount = storyDetail?.tasks.filter((t) => t.status === "DONE").length;
+  useEffect(() => {
+    if (!story || subtaskCount === undefined || completedSubtaskCount === undefined) return;
+    syncStorySubtasks(story.id, subtaskCount, completedSubtaskCount);
+  }, [story?.id, subtaskCount, completedSubtaskCount, syncStorySubtasks]);
 
   useEffect(() => {
     if (!open || !scrollToComments || isLoadingComments) return;
