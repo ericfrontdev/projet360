@@ -2,11 +2,15 @@ import { create } from "zustand";
 
 const STALE_TIME_MS = 30_000; // 30 secondes
 
-interface Story {
+export interface MyWorkStory {
   id: string;
+  storyNumber: number;
+  type: "FEATURE" | "FIX";
   title: string;
   status: string;
+  priority: number;
   project: string;
+  projectId: string;
   subtasks: number;
   completedSubtasks: number;
 }
@@ -58,7 +62,7 @@ interface Stats {
 }
 
 interface MyWorkState {
-  stories: Story[];
+  stories: MyWorkStory[];
   checklistItems: ChecklistItem[];
   upcomingStories: UpcomingStory[];
   comments: ActivityComment[];

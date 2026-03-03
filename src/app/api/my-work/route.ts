@@ -28,13 +28,13 @@ export async function GET() {
       inProgressStories,
     ] = await Promise.all([
       prisma.story.findMany({
-        where: { ...userStoryFilter, status: { in: ["TODO", "IN_PROGRESS"] } },
+        where: { ...userStoryFilter, status: { notIn: ["BACKLOG", "ARCHIVED"] } },
         include: {
-          project: { select: { name: true } },
+          project: { select: { id: true, name: true } },
           tasks: { select: { id: true, status: true } },
         },
         orderBy: { updatedAt: "desc" },
-        take: 10,
+        take: 20,
       }),
       prisma.checklistItem.findMany({
         where: { checklist: { story: userStoryFilter } },
@@ -86,9 +86,13 @@ export async function GET() {
 
     const formattedStories = stories.map((story) => ({
       id: story.id,
+      storyNumber: story.storyNumber,
+      type: story.type,
       title: story.title,
       status: story.status,
+      priority: story.priority,
       project: story.project.name,
+      projectId: story.project.id,
       subtasks: story.tasks.length,
       completedSubtasks: story.tasks.filter((t) => t.status === "DONE").length,
     }));
