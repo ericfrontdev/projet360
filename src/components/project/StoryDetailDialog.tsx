@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
-import { X, Edit3, Copy, Link2, CheckSquare, User, Flag, Calendar, Tag, GitBranch, MessageSquare, Clock, MoreHorizontal, Check, Circle, Loader2, FileText, FolderOpen, Archive, ArchiveRestore, CopyCheck, ListChecks, Paperclip, ExternalLink } from "lucide-react";
+import { X, Edit3, Copy, Link2, CheckSquare, User, Flag, Calendar, Tag, GitBranch, MessageSquare, Clock, MoreHorizontal, Check, Circle, Loader2, FileText, FolderOpen, Archive, ArchiveRestore, CopyCheck, ListChecks, Paperclip, ExternalLink, FileImage, File as FileIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DatePicker } from "@/components/ui/date-picker";
 import { LabelSelector } from "@/components/project/LabelSelector";
 import { ChecklistSection } from "@/components/project/ChecklistSection";
+import { Dropzone, formatFileSize } from "@/components/ui/dropzone";
 import type { Label, Checklist } from "@/components/project/kanban/types";
 import { useProjectStore } from "@/stores/project";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -70,6 +71,14 @@ interface StoryLink {
   url: string;
 }
 
+interface StoryAttachment {
+  id: string;
+  filename: string;
+  url: string;
+  size: number;
+  mimeType: string;
+}
+
 interface StoryDetail {
   id: string;
   storyNumber: number;
@@ -95,6 +104,7 @@ interface StoryDetail {
   labels?: Label[];
   checklists?: Checklist[];
   links?: StoryLink[];
+  attachments?: StoryAttachment[];
 }
 
 interface StoryDetailDialogProps {
@@ -186,6 +196,10 @@ export function StoryDetailDialog({
   const [newLinkTitle, setNewLinkTitle] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
 
+  // Attachments state
+  const [showAttachments, setShowAttachments] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
   // Comments state
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -201,6 +215,10 @@ export function StoryDetailDialog({
   useEffect(() => {
     if ((storyDetail?.links ?? []).length > 0) setShowLinks(true);
   }, [storyDetail?.links]);
+
+  useEffect(() => {
+    if ((storyDetail?.attachments ?? []).length > 0) setShowAttachments(true);
+  }, [storyDetail?.attachments]);
 
   // Sync subtask counts to Zustand store whenever tasks change (creation, deletion, status change)
   const subtaskCount = storyDetail?.tasks.length;
@@ -357,6 +375,44 @@ export function StoryDetailDialog({
     if (!storyDetail) return;
     mutateStory({ ...storyDetail, links: (storyDetail.links ?? []).filter((l) => l.id !== linkId) }, false);
     await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/links/${linkId}`, { method: "DELETE" });
+  }
+
+  async function handleFilesAdded(files: File[]) {
+    if (!storyDetail) return;
+    setIsUploading(true);
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(
+        `/api/projects/${projectId}/stories/${storyDetail.id}/attachments`,
+        { method: "POST", body: fd }
+      );
+      if (res.ok) {
+        const att: StoryAttachment = await res.json();
+        mutateStory(
+          { ...storyDetail, attachments: [...(storyDetail.attachments ?? []), att] },
+          false
+        );
+      }
+    }
+    setIsUploading(false);
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!storyDetail) return;
+    const next = (storyDetail.attachments ?? []).filter((a) => a.id !== attachmentId);
+    mutateStory({ ...storyDetail, attachments: next }, false);
+    if (next.length === 0) setShowAttachments(false);
+    await fetch(
+      `/api/projects/${projectId}/stories/${storyDetail.id}/attachments/${attachmentId}`,
+      { method: "DELETE" }
+    );
+  }
+
+  function getFileIcon(mimeType: string) {
+    if (mimeType.startsWith("image/")) return <FileImage className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />;
+    if (mimeType === "application/pdf") return <FileText className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />;
+    return <FileIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
   }
 
   async function handleDueDateChange(date: Date | null) {
@@ -789,12 +845,70 @@ export function StoryDetailDialog({
                     <Link2 className="h-3 w-3 mr-1" />
                     Liens externes
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="text-xs" disabled>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn("text-xs", showAttachments && "border-primary text-primary")}
+                    onClick={() => setShowAttachments((v) => !v)}
+                    disabled={!storyDetail}
+                  >
                     <Paperclip className="h-3 w-3 mr-1" />
-                    Attach Files
+                    Pièces jointes
                   </Button>
                 </div>
               </div>
+
+              {/* Pièces jointes Section */}
+              {showAttachments && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    Pièces jointes
+                    {(storyDetail?.attachments ?? []).length > 0 && (
+                      <span className="text-xs text-muted-foreground font-normal">
+                        {(storyDetail?.attachments ?? []).length}
+                      </span>
+                    )}
+                    {isUploading && (
+                      <span className="text-xs text-muted-foreground animate-pulse">Envoi...</span>
+                    )}
+                  </h3>
+                  <div className="space-y-1">
+                    {(storyDetail?.attachments ?? []).map((att) => (
+                      <div
+                        key={att.id}
+                        className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/40"
+                      >
+                        {getFileIcon(att.mimeType)}
+                        <a
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 text-sm truncate hover:underline"
+                        >
+                          {att.filename}
+                        </a>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          {formatFileSize(att.size)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAttachment(att.id)}
+                          className="text-muted-foreground hover:text-destructive cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <Dropzone
+                    onFilesAdded={handleFilesAdded}
+                    maxSize={10 * 1024 * 1024}
+                    disabled={isUploading || !storyDetail}
+                  />
+                </div>
+              )}
 
               {/* Liens externes Section */}
               {showLinks && (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, CheckSquare, Link2, Paperclip, ListChecks, Clock, User, Flag, Calendar, Tag, X, Circle, Check, MoreHorizontal, Trash2, ExternalLink } from "lucide-react";
+import { Plus, CheckSquare, Link2, Paperclip, ListChecks, Clock, User, Flag, Calendar, Tag, X, Circle, Check, MoreHorizontal, Trash2, ExternalLink, FileText, FileImage, File as FileIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +32,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { LabelSelector } from "@/components/project/LabelSelector";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useProjectStore } from "@/stores/project";
+import { Dropzone, formatFileSize } from "@/components/ui/dropzone";
 
 interface CreateStoryDialogProps {
   projectId: string;
@@ -106,6 +107,11 @@ export function CreateStoryDialog({
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [newLinkTitle, setNewLinkTitle] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
+  // Attachments — local File objects for create mode, DB records for edit mode
+  const [showAttachments, setShowAttachments] = useState(false);
+  const [localFiles, setLocalFiles] = useState<{ id: string; file: File }[]>([]);
+  const [editAttachments, setEditAttachments] = useState<{ id: string; filename: string; url: string; size: number; mimeType: string }[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createAnother, setCreateAnother] = useState(false);
@@ -117,6 +123,7 @@ export function CreateStoryDialog({
     dueDate?: string | null; labels?: Label[];
     tasks?: { id: string; taskNumber: number; title: string; status: string }[];
     links?: { id: string; title: string; url: string }[];
+    attachments?: { id: string; filename: string; url: string; size: number; mimeType: string }[];
   }>(
     isEditMode && dialogOpen ? `/api/projects/${projectId}/stories/${storyId}` : null,
     fetcher
@@ -137,6 +144,8 @@ export function CreateStoryDialog({
       setEditTasks(editStoryData.tasks ?? []);
       setEditLinks(editStoryData.links ?? []);
       if ((editStoryData.links ?? []).length > 0) setShowLinks(true);
+      setEditAttachments(editStoryData.attachments ?? []);
+      if ((editStoryData.attachments ?? []).length > 0) setShowAttachments(true);
     }
   }, [editStoryData, isEditMode]);
 
@@ -174,6 +183,9 @@ export function CreateStoryDialog({
     setIsAddingLink(false);
     setNewLinkTitle("");
     setNewLinkUrl("");
+    setShowAttachments(false);
+    setLocalFiles([]);
+    setEditAttachments([]);
     setError(null);
   }
 
@@ -267,6 +279,16 @@ export function CreateStoryDialog({
             })
           )
         );
+
+        // Upload local attachments
+        for (const { file } of localFiles) {
+          const fd = new FormData();
+          fd.append("file", file);
+          await fetch(`/api/projects/${projectId}/stories/${storyData.id}/attachments`, {
+            method: "POST",
+            body: fd,
+          });
+        }
 
         // Create checklist with local items if any
         if (localChecklistItems.length > 0) {
@@ -425,6 +447,53 @@ export function CreateStoryDialog({
     } else {
       setLocalLinks((prev) => prev.filter((l) => l.id !== id));
     }
+  }
+
+  async function handleFilesAdded(files: File[]) {
+    if (isEditMode && storyId) {
+      // Edit mode: upload immediately
+      setIsUploading(true);
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch(`/api/projects/${projectId}/stories/${storyId}/attachments`, {
+          method: "POST",
+          body: fd,
+        });
+        if (res.ok) {
+          const att = await res.json();
+          setEditAttachments((prev) => [...prev, att]);
+        }
+      }
+      setIsUploading(false);
+    } else {
+      // Create mode: store locally
+      setLocalFiles((prev) => [...prev, ...files.map((file) => ({ id: crypto.randomUUID(), file }))]);
+    }
+  }
+
+  function handleDeleteLocalFile(id: string) {
+    setLocalFiles((prev) => {
+      const next = prev.filter((f) => f.id !== id);
+      if (next.length === 0) setShowAttachments(false);
+      return next;
+    });
+  }
+
+  async function handleDeleteAttachment(id: string) {
+    if (!isEditMode || !storyId) return;
+    setEditAttachments((prev) => {
+      const next = prev.filter((a) => a.id !== id);
+      if (next.length === 0) setShowAttachments(false);
+      return next;
+    });
+    await fetch(`/api/projects/${projectId}/stories/${storyId}/attachments/${id}`, { method: "DELETE" });
+  }
+
+  function getFileIcon(mimeType: string) {
+    if (mimeType.startsWith("image/")) return <FileImage className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />;
+    if (mimeType === "application/pdf") return <FileText className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />;
+    return <FileIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
   }
 
   const currentStatus = statusOptions.find((s) => s.id === status);
@@ -750,12 +819,74 @@ export function CreateStoryDialog({
                     <Link2 className="h-3 w-3 mr-1" />
                     Liens externes
                   </Button>
-                  <Button type="button" variant="outline" size="sm" className="text-xs" disabled>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn("text-xs", showAttachments && "border-primary text-primary")}
+                    onClick={() => setShowAttachments((v) => !v)}
+                  >
                     <Paperclip className="h-3 w-3 mr-1" />
-                    Attach Files
+                    Pièces jointes
                   </Button>
                 </div>
               </div>
+
+              {/* Pièces jointes Section */}
+              {showAttachments && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    Pièces jointes
+                    {(isEditMode ? editAttachments : localFiles).length > 0 && (
+                      <span className="text-xs text-muted-foreground font-normal">
+                        {(isEditMode ? editAttachments : localFiles).length}
+                      </span>
+                    )}
+                    {isUploading && <span className="text-xs text-muted-foreground animate-pulse">Envoi...</span>}
+                  </h3>
+                  <div className="space-y-1">
+                    {isEditMode
+                      ? editAttachments.map((att) => (
+                          <div key={att.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/40">
+                            {getFileIcon(att.mimeType)}
+                            <a
+                              href={att.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 text-sm truncate hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {att.filename}
+                            </a>
+                            <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(att.size)}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAttachment(att.id)}
+                              className="text-muted-foreground hover:text-destructive cursor-pointer"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))
+                      : localFiles.map(({ id, file }) => (
+                          <div key={id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/40">
+                            {getFileIcon(file.type)}
+                            <span className="flex-1 text-sm truncate">{file.name}</span>
+                            <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(file.size)}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLocalFile(id)}
+                              className="text-muted-foreground hover:text-destructive cursor-pointer"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                  </div>
+                  <Dropzone onFilesAdded={handleFilesAdded} maxSize={10 * 1024 * 1024} disabled={isUploading} />
+                </div>
+              )}
 
               {/* Liens externes Section */}
               {showLinks && (

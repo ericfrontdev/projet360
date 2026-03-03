@@ -81,6 +81,9 @@ export async function GET(
         links: {
           orderBy: { createdAt: "asc" },
         },
+        attachments: {
+          orderBy: { createdAt: "asc" },
+        },
       },
     });
 
