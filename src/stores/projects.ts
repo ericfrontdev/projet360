@@ -4,6 +4,7 @@ interface Project {
   id: string;
   name: string;
   description: string | null;
+  type: "STORY" | "LIST";
   createdAt: string;
   updatedAt: string;
   ownerId: string;
