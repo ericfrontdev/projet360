@@ -38,6 +38,7 @@ export function ListItemDetailDialog({
   useEffect(() => {
     if (open && item) {
       setTitleValue(item.title);
+      setTimeout(() => textareaRef.current?.select(), 0);
     }
   }, [open, item]);
 
