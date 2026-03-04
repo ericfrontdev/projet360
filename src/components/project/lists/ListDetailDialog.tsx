@@ -311,7 +311,7 @@ export function ListDetailDialog({ list, projectId, open, onOpenChange }: ListDe
                 }}
                 placeholder="Ajouter un item... (Entrée pour valider, Maj+Entrée pour sauter une ligne)"
                 rows={1}
-                className="flex-1 resize-none overflow-hidden rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring placeholder:text-muted-foreground min-h-[2.25rem]"
+                className="flex-1 resize-none overflow-hidden rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 placeholder:text-muted-foreground min-h-[2.25rem] transition-colors"
               />
               <Button
                 size="sm"

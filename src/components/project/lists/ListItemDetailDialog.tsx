@@ -32,6 +32,7 @@ export function ListItemDetailDialog({
   const removeListItem = useProjectListStore((s) => s.removeListItem);
 
   const [titleValue, setTitleValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -113,7 +114,8 @@ export function ListItemDetailDialog({
               ref={textareaRef}
               value={titleValue}
               onChange={(e) => setTitleValue(e.target.value)}
-              onBlur={handleSave}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => { setIsFocused(false); handleSave(); }}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   setTitleValue(item.title);
@@ -131,7 +133,7 @@ export function ListItemDetailDialog({
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end border-t pt-3">
+          <div className={cn("flex justify-end border-t pt-3 transition-colors", isFocused && "border-purple-500")}>
             <Button
               variant="ghost"
               size="sm"
