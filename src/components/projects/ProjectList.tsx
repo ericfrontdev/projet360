@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { Folder, MoreHorizontal, Pencil, Trash } from "lucide-react";
+import { Layers, LayoutList, MoreHorizontal, Pencil, Trash } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useProjectsStore } from "@/stores/projects";
@@ -68,7 +68,7 @@ export function ProjectList() {
                 : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             )}
           >
-            <Folder size={16} />
+            {project.type === "LIST" ? <LayoutList size={16} /> : <Layers size={16} />}
             <span className="truncate">{project.name}</span>
           </Link>
           <DropdownMenu>
