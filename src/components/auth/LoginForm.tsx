@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const resetSuccess = searchParams.get("reset") === "true";
   const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -61,6 +63,9 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {resetSuccess && (
+        <p className="text-sm text-emerald-600">Mot de passe réinitialisé avec succès. Connectez-vous.</p>
+      )}
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
@@ -73,7 +78,12 @@ export function LoginForm() {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-foreground">
+            Mot de passe oublié ?
+          </Link>
+        </div>
         <Input
           id="password"
           type="password"
