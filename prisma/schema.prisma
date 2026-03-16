@@ -11,6 +11,11 @@ enum ProjectType {
   LIST
 }
 
+enum PlatformRole {
+  USER
+  SUPER_ADMIN
+}
+
 enum StoryStatus {
   BACKLOG
   TODO
@@ -33,12 +38,13 @@ enum TaskStatus {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
+  id            String       @id @default(uuid())
+  email         String       @unique
   name          String?
   avatarUrl     String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  platformRole  PlatformRole @default(USER)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   
   ownedProjects Project[]
   projectMembers ProjectMember[]
