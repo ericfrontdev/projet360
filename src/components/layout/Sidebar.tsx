@@ -1,6 +1,7 @@
 "use client";
 
 import { LayoutDashboard } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -38,11 +39,8 @@ export function Sidebar() {
     <aside className="flex h-screen w-64 flex-col border-r bg-background">
       {/* Logo */}
       <div className="flex h-14 items-center border-b px-4">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-sm font-bold text-primary-foreground">
-            P
-          </div>
-          <span className="font-semibold">Projet 360</span>
+        <Link href="/">
+          <Image src="/projet360-logo.png" alt="Projet 360" width={120} height={32} className="h-8 w-auto" priority />
         </Link>
       </div>
 
