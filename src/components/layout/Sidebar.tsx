@@ -37,7 +37,14 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full flex-col" onClick={onNavigate}>
+    <div
+      className="flex h-full flex-col"
+      onClick={(e) => {
+        if (onNavigate && (e.target as HTMLElement).closest("a")) {
+          onNavigate();
+        }
+      }}
+    >
       {/* Logo */}
       <div className="flex h-14 items-center border-b px-4 shrink-0">
         <Link href="/">
