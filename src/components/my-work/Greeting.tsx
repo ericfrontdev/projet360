@@ -20,9 +20,9 @@ export function Greeting() {
   }, []);
 
   return (
-    <div className="flex items-center gap-2">
-      <UserAvatar name={name} avatarUrl={avatarUrl} size="sm" />
-      <h1 className="text-xl font-semibold">
+    <div className="flex items-center gap-2 min-w-0">
+      <UserAvatar name={name} avatarUrl={avatarUrl} size="sm" className="shrink-0" />
+      <h1 className="text-xl font-semibold truncate min-w-0">
         {greeting}{name ? `, ${name}` : ""}
       </h1>
     </div>

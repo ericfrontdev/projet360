@@ -80,10 +80,10 @@ export function MyStories() {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-2">
           <CardTitle className="text-base font-semibold">Mes stories</CardTitle>
           <Select value={filter} onValueChange={(v) => setFilter(v as FilterMode)}>
-            <SelectTrigger className="h-8 w-auto text-xs">
+            <SelectTrigger className="h-8 w-full sm:w-auto text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
