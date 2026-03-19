@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useTouchDevice } from "@/hooks/use-touch-device";
 import { FileText, Clock, GripVertical } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,9 +76,12 @@ export function DescriptionTab() {
     [localLists]
   );
 
+  const isTouch = useTouchDevice();
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    ...(isTouch ? [] : [
+      useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+      useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    ])
   );
 
   const activeStory = useMemo(
