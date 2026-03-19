@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useTouchDevice } from "@/hooks/use-touch-device";
 import dynamic from "next/dynamic";
 import { useProjectStore } from "@/stores/project";
 import { useShallow } from "zustand/react/shallow";
@@ -87,11 +88,12 @@ export function BoardTab({ projectId }: BoardTabProps) {
     return story.subtasks === 0 || story.completedSubtasks === story.subtasks;
   }
 
+  const isTouch = useTouchDevice();
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
-    }),
-    useSensor(KeyboardSensor)
+    ...(isTouch ? [] : [
+      useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+      useSensor(KeyboardSensor),
+    ])
   );
 
   const activeStory = useMemo(
