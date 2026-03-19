@@ -65,14 +65,12 @@ function StoryProjectTabs({ project }: { project: Project }) {
 
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-      <div className="overflow-x-auto">
-        <TabsList className="w-full md:w-auto">
-          <TabsTrigger value="description" className="flex-1 md:flex-none text-xs md:text-sm px-2 md:px-3">Description</TabsTrigger>
-          <TabsTrigger value="backlog" className="flex-1 md:flex-none text-xs md:text-sm px-2 md:px-3">Backlog</TabsTrigger>
-          <TabsTrigger value="board" className="flex-1 md:flex-none text-xs md:text-sm px-2 md:px-3">Tableau</TabsTrigger>
-          <TabsTrigger value="archived" className="flex-1 md:flex-none text-xs md:text-sm px-2 md:px-3">Archivées</TabsTrigger>
-        </TabsList>
-      </div>
+      <TabsList className="grid grid-cols-4 w-full md:inline-flex md:w-auto">
+        <TabsTrigger value="description" className="text-xs md:text-sm px-2 md:px-3">Description</TabsTrigger>
+        <TabsTrigger value="backlog" className="text-xs md:text-sm px-2 md:px-3">Backlog</TabsTrigger>
+        <TabsTrigger value="board" className="text-xs md:text-sm px-2 md:px-3">Tableau</TabsTrigger>
+        <TabsTrigger value="archived" className="text-xs md:text-sm px-2 md:px-3">Archivées</TabsTrigger>
+      </TabsList>
 
       <TabsContent value="description" className="mt-6">
         {visitedTabs.has("description") && <DescriptionTab />}
@@ -109,14 +107,12 @@ function ListProjectTabs({ project }: { project: Project }) {
 
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-      <div className="overflow-x-auto">
-        <TabsList className="w-full md:w-auto">
-          <TabsTrigger value="description" className="flex-1 md:flex-none text-xs md:text-sm px-2 md:px-3">Description</TabsTrigger>
-          <TabsTrigger value="listes" className="flex-1 md:flex-none text-xs md:text-sm px-2 md:px-3"><span className="hidden sm:inline">Listes actuelles</span><span className="sm:hidden">Listes</span></TabsTrigger>
-          <TabsTrigger value="tableau" className="flex-1 md:flex-none text-xs md:text-sm px-2 md:px-3">Tableau</TabsTrigger>
-          <TabsTrigger value="archived" className="flex-1 md:flex-none text-xs md:text-sm px-2 md:px-3">Archivées</TabsTrigger>
-        </TabsList>
-      </div>
+      <TabsList className="grid grid-cols-4 w-full md:inline-flex md:w-auto">
+        <TabsTrigger value="description" className="text-xs md:text-sm px-2 md:px-3">Description</TabsTrigger>
+        <TabsTrigger value="listes" className="text-xs md:text-sm px-2 md:px-3"><span className="hidden sm:inline">Listes actuelles</span><span className="sm:hidden">Listes</span></TabsTrigger>
+        <TabsTrigger value="tableau" className="text-xs md:text-sm px-2 md:px-3">Tableau</TabsTrigger>
+        <TabsTrigger value="archived" className="text-xs md:text-sm px-2 md:px-3">Archivées</TabsTrigger>
+      </TabsList>
 
       <TabsContent value="description" className="mt-6">
         {visitedTabs.has("description") && <DescriptionTab />}
@@ -159,28 +155,24 @@ export function ProjectPageClient({
   const isListProject = projectType === "LIST";
 
   // Fallback tabs for Suspense
-  const tabClass = "flex-1 md:flex-none text-xs md:text-sm px-2 md:px-3";
+  const tabClass = "text-xs md:text-sm px-2 md:px-3";
   const fallbackTabs = isListProject ? (
     <Tabs defaultValue="description" className="w-full">
-      <div className="overflow-x-auto">
-        <TabsList className="w-full md:w-auto">
-          <TabsTrigger value="description" className={tabClass}>Description</TabsTrigger>
-          <TabsTrigger value="listes" className={tabClass}><span className="hidden sm:inline">Listes actuelles</span><span className="sm:hidden">Listes</span></TabsTrigger>
-          <TabsTrigger value="tableau" className={tabClass}>Tableau</TabsTrigger>
-          <TabsTrigger value="archived" className={tabClass}>Archivées</TabsTrigger>
-        </TabsList>
-      </div>
+      <TabsList className="grid grid-cols-4 w-full md:inline-flex md:w-auto">
+        <TabsTrigger value="description" className={tabClass}>Description</TabsTrigger>
+        <TabsTrigger value="listes" className={tabClass}><span className="hidden sm:inline">Listes actuelles</span><span className="sm:hidden">Listes</span></TabsTrigger>
+        <TabsTrigger value="tableau" className={tabClass}>Tableau</TabsTrigger>
+        <TabsTrigger value="archived" className={tabClass}>Archivées</TabsTrigger>
+      </TabsList>
     </Tabs>
   ) : (
     <Tabs defaultValue="description" className="w-full">
-      <div className="overflow-x-auto">
-        <TabsList className="w-full md:w-auto">
-          <TabsTrigger value="description" className={tabClass}>Description</TabsTrigger>
-          <TabsTrigger value="backlog" className={tabClass}>Backlog</TabsTrigger>
-          <TabsTrigger value="board" className={tabClass}>Tableau</TabsTrigger>
-          <TabsTrigger value="archived" className={tabClass}>Archivées</TabsTrigger>
-        </TabsList>
-      </div>
+      <TabsList className="grid grid-cols-4 w-full md:inline-flex md:w-auto">
+        <TabsTrigger value="description" className={tabClass}>Description</TabsTrigger>
+        <TabsTrigger value="backlog" className={tabClass}>Backlog</TabsTrigger>
+        <TabsTrigger value="board" className={tabClass}>Tableau</TabsTrigger>
+        <TabsTrigger value="archived" className={tabClass}>Archivées</TabsTrigger>
+      </TabsList>
     </Tabs>
   );
 

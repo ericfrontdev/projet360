@@ -157,7 +157,7 @@ export function ActivityFeed() {
               )}
             >
               {icon}
-              {label}
+              <span className="hidden md:inline">{label}</span>
               {count > 0 && (
                 <span className={cn(
                   "rounded-full px-1.5 py-0.5 text-xs",

@@ -265,10 +265,11 @@ export function SearchTrigger() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-3 w-80 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors"
+        className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors w-9 md:w-80"
+        aria-label="Rechercher"
       >
-        <Search size={14} />
-        <span className="flex-1 text-left">Rechercher…</span>
+        <Search size={14} className="shrink-0" />
+        <span className="hidden md:flex flex-1 text-left">Rechercher…</span>
         <kbd className="hidden lg:flex items-center gap-1 rounded border bg-background px-1.5 font-mono text-xs">
           <Command size={11} />
           <span>K</span>
