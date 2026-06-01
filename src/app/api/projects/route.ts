@@ -113,7 +113,8 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(project, { status: 201 });
-  } catch {
+  } catch (err: unknown) {
+    console.error("[POST /api/projects]", err);
     return NextResponse.json(
       { error: "Échec de la création du projet" },
       { status: 500 }
