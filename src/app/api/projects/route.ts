@@ -64,23 +64,27 @@ export async function GET() {
 
 // POST /api/projects - Create new project
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data, response } = await validateBody(request, createProjectSchema);
-  if (response) return response;
-
   try {
-    const { name, description, color, type } = data;
+    console.log("[POST /api/projects] start");
+    const supabase = await createClient();
+    console.log("[POST /api/projects] supabase client created");
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    console.log("[POST /api/projects] getUser done", user?.id ?? "no user");
 
-    // Ensure user exists in database before creating project
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data, response } = await validateBody(request, createProjectSchema);
+    console.log("[POST /api/projects] validateBody done");
+    if (response) return response;
+
+    const { name, description, color, type } = data;
+    console.log("[POST /api/projects] ensureUserExists...");
     await ensureUserExists(user.id, user.email!, user.user_metadata?.name);
+    console.log("[POST /api/projects] ensureUserExists done, creating project...");
 
     const project = await prisma.project.create({
       data: {
@@ -112,9 +116,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    console.log("[POST /api/projects] project created successfully");
     return NextResponse.json(project, { status: 201 });
   } catch (err: unknown) {
-    console.error("[POST /api/projects]", err);
+    console.error("[POST /api/projects] ERROR:", err);
     return NextResponse.json(
       { error: "Échec de la création du projet" },
       { status: 500 }
