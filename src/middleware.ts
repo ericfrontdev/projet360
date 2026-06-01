@@ -68,6 +68,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Les routes API gèrent leur propre authentification — updateSession n'est
+  // nécessaire que pour les pages SSR afin de rafraîchir les cookies de session
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   return await updateSession(request);
 }
 
