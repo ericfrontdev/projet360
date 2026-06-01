@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
-import { X, Edit3, Copy, Link2, CheckSquare, User, Flag, Calendar, Tag, GitBranch, MessageSquare, Clock, MoreHorizontal, Check, Circle, Loader2, FileText, FolderOpen, Archive, ArchiveRestore, CopyCheck, ListChecks, Paperclip, ExternalLink, FileImage, File as FileIcon } from "lucide-react";
+import { X, Edit3, Loader2, ListChecks, Link2, Paperclip, Clock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,25 +15,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { UserAvatar } from "@/components/ui/user-avatar";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { MentionTextarea, extractMentions } from "@/components/ui/mention-textarea";
-import { createClient } from "@/lib/supabase/client";
-import { DatePicker } from "@/components/ui/date-picker";
-import { LabelSelector } from "@/components/project/LabelSelector";
 import { ChecklistSection } from "@/components/project/ChecklistSection";
-import { Dropzone, formatFileSize } from "@/components/ui/dropzone";
+import { StoryDetailSubtasks } from "@/components/project/StoryForm/StoryDetailSubtasks";
+import { StoryComments } from "@/components/project/StoryForm/StoryComments";
+import { StoryDetailSidebar } from "@/components/project/StoryForm/StoryDetailSidebar";
+import { StoryAttachments } from "@/components/project/StoryForm/StoryAttachments";
+import { StoryLinks } from "@/components/project/StoryForm/StoryLinks";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import type { Label, Checklist } from "@/components/project/kanban/types";
 import { useProjectStore } from "@/stores/project";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -57,12 +47,7 @@ interface Comment {
   id: string;
   content: string;
   createdAt: string;
-  author: {
-    id: string;
-    name: string | null;
-    email: string;
-    avatarUrl?: string | null;
-  };
+  author: { id: string; name: string | null; email: string; avatarUrl?: string | null };
 }
 
 interface StoryLink {
@@ -90,16 +75,8 @@ interface StoryDetail {
   createdAt: string;
   tasks: Task[];
   comments: Comment[];
-  assignee?: {
-    name: string | null;
-    email: string;
-    avatarUrl?: string | null;
-  } | null;
-  author?: {
-    name: string | null;
-    email: string;
-    avatarUrl?: string | null;
-  } | null;
+  assignee?: { name: string | null; email: string; avatarUrl?: string | null } | null;
+  author?: { name: string | null; email: string; avatarUrl?: string | null } | null;
   dueDate?: string | null;
   labels?: Label[];
   checklists?: Checklist[];
@@ -116,17 +93,6 @@ interface StoryDetailDialogProps {
   scrollToComments?: boolean;
 }
 
-function getStatusIcon(status: string) {
-  switch (status) {
-    case "DONE":
-      return <Check className="h-4 w-4 text-emerald-500" />;
-    case "IN_PROGRESS":
-      return <Clock className="h-4 w-4 text-blue-500" />;
-    default:
-      return <Circle className="h-4 w-4 text-slate-400" />;
-  }
-}
-
 function getStatusLabel(status: string) {
   switch (status) {
     case "TODO": return "À faire";
@@ -139,23 +105,8 @@ function getStatusLabel(status: string) {
   }
 }
 
-function getPriorityLabel(priority: number) {
-  switch (priority) {
-    case 0: return "P0 - Critique";
-    case 1: return "P1 - Haute";
-    case 2: return "P2 - Normale";
-    case 3: return "P3 - Basse";
-    default: return `P${priority}`;
-  }
-}
-
 function formatDate(dateString: string) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return new Date(dateString).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export function StoryDetailDialog({
@@ -169,61 +120,39 @@ export function StoryDetailDialog({
   const isAdmin = useProjectStore((s) => s.userRole) !== "MEMBER";
   const syncStorySubtasks = useProjectStore((s) => s.syncStorySubtasks);
 
-  // La clé story ne dépend PAS de `open` : le cache reste actif entre les ouvertures/fermetures
-  // → pas de transition null→URL à chaque ouverture → pas de refetch → pas de flash
   const storyKey = story?.id ? `/api/projects/${projectId}/stories/${story.id}` : null;
   const commentsKey = open && story ? `/api/projects/${projectId}/stories/${story.id}/comments` : null;
   const membersKey = open ? `/api/projects/${projectId}/members` : null;
+  const labelsKey = open ? `/api/projects/${projectId}/labels` : null;
 
   const SWR_OPTS = { revalidateOnFocus: false, revalidateIfStale: false } as const;
   const { data: storyDetail, isLoading, mutate: mutateStory } = useSWR<StoryDetail>(storyKey, fetcher, SWR_OPTS);
   const { data: comments = [], isLoading: isLoadingComments, mutate: mutateComments } = useSWR<Comment[]>(commentsKey, fetcher, SWR_OPTS);
   const { data: projectUsers = [], isLoading: isLoadingUsers } = useSWR<TaskAssignee[]>(membersKey, fetcher, SWR_OPTS);
-  const labelsKey = open ? `/api/projects/${projectId}/labels` : null;
   const { data: projectLabels = [], mutate: mutateProjectLabels } = useSWR<Label[]>(labelsKey, fetcher, SWR_OPTS);
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState("");
   const [isSavingDescription, setIsSavingDescription] = useState(false);
 
-  // New subtask state
-  const [isAddingSubtask, setIsAddingSubtask] = useState(false);
-  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
-
-  // Checklist visibility
   const [showChecklist, setShowChecklist] = useState(false);
-
-  // External links state
   const [showLinks, setShowLinks] = useState(false);
-  const [isAddingLink, setIsAddingLink] = useState(false);
-  const [newLinkTitle, setNewLinkTitle] = useState("");
-  const [newLinkUrl, setNewLinkUrl] = useState("");
-
-  // Attachments state
   const [showAttachments, setShowAttachments] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Comments state
-  const [newComment, setNewComment] = useState("");
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+
   const [currentUserName, setCurrentUserName] = useState<string | null>(null);
   const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
   const commentsRef = useRef<HTMLDivElement>(null);
 
-  // Auto-show sections when story data loads
-  useEffect(() => {
-    if ((storyDetail?.checklists ?? []).length > 0) setShowChecklist(true);
-  }, [storyDetail?.checklists]);
+  useEffect(() => { if ((storyDetail?.checklists ?? []).length > 0) setShowChecklist(true); }, [storyDetail?.checklists]);
+  useEffect(() => { if ((storyDetail?.links ?? []).length > 0) setShowLinks(true); }, [storyDetail?.links]);
+  useEffect(() => { if ((storyDetail?.attachments ?? []).length > 0) setShowAttachments(true); }, [storyDetail?.attachments]);
 
-  useEffect(() => {
-    if ((storyDetail?.links ?? []).length > 0) setShowLinks(true);
-  }, [storyDetail?.links]);
-
-  useEffect(() => {
-    if ((storyDetail?.attachments ?? []).length > 0) setShowAttachments(true);
-  }, [storyDetail?.attachments]);
-
-  // Sync subtask counts to Zustand store whenever tasks change (creation, deletion, status change)
   const subtaskCount = storyDetail?.tasks.length;
   const completedSubtaskCount = storyDetail?.tasks.filter((t) => t.status === "DONE").length;
   useEffect(() => {
@@ -233,110 +162,98 @@ export function StoryDetailDialog({
 
   useEffect(() => {
     if (!open || !scrollToComments || isLoadingComments) return;
-    const timer = setTimeout(() => {
-      commentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+    const timer = setTimeout(() => { commentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 100);
     return () => clearTimeout(timer);
   }, [open, scrollToComments, isLoadingComments]);
 
   useEffect(() => {
-    fetch("/api/users/me")
-      .then((r) => r.json())
-      .then((data) => {
-        setCurrentUserName(data.name ?? data.email ?? null);
-        setCurrentUserAvatarUrl(data.avatarUrl ?? null);
-      })
-      .catch(() => {});
+    fetch("/api/users/me").then((r) => r.json()).then((data) => {
+      setCurrentUserName(data.name ?? data.email ?? null);
+      setCurrentUserAvatarUrl(data.avatarUrl ?? null);
+    }).catch(() => {});
   }, []);
 
-  // Archive confirmation dialog
-  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
-
-  // Restore confirmation dialog
-  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
-
-  // Copy tooltip state
-  const [copied, setCopied] = useState(false);
-
-  async function handleSubmitComment() {
-    if (!newComment.trim() || !story) return;
-    setIsSubmittingComment(true);
+  async function handleSaveDescription() {
+    if (!storyDetail) return;
+    setIsSavingDescription(true);
     try {
-      const mentions = extractMentions(newComment.trim(), projectUsers);
-      const response = await fetch(`/api/projects/${projectId}/stories/${story.id}/comments`, {
-        method: "POST",
+      const response = await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newComment.trim(), mentions }),
+        body: JSON.stringify({ description: editedDescription }),
       });
-      if (response.ok) {
-        const comment = await response.json();
-        mutateComments((prev) => [...(prev ?? []), comment], false);
-        setNewComment("");
-      }
-    } finally {
-      setIsSubmittingComment(false);
+      if (response.ok) { mutateStory({ ...storyDetail, description: editedDescription }, false); setIsEditingDescription(false); }
+    } finally { setIsSavingDescription(false); }
+  }
+
+  async function handleAddSubtask(title: string) {
+    if (!storyDetail) return;
+    const response = await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/tasks`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }),
+    });
+    if (response.ok) {
+      const newTask: Task = await response.json();
+      mutateStory({ ...storyDetail, tasks: [...storyDetail.tasks, newTask] }, false);
     }
+  }
+
+  async function handleToggleTaskStatus(taskId: string, currentStatus: string) {
+    if (!storyDetail) return;
+    const newStatus = currentStatus === "DONE" ? "TODO" : "DONE";
+    mutateStory({ ...storyDetail, tasks: storyDetail.tasks.map((t) => t.id === taskId ? { ...t, status: newStatus } : t) }, false);
+    try {
+      await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/tasks/${taskId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: newStatus }),
+      });
+    } finally { mutateStory(); }
+  }
+
+  async function handleAssignTask(taskId: string, userId: string | null) {
+    if (!storyDetail) return;
+    const assignee = userId ? projectUsers.find((u) => u.id === userId) || null : null;
+    mutateStory({ ...storyDetail, tasks: storyDetail.tasks.map((t) => t.id === taskId ? { ...t, assignee: assignee || undefined } : t) }, false);
+    try {
+      await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/tasks/${taskId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assigneeId: userId }),
+      });
+    } finally { mutateStory(); }
   }
 
   async function handleToggleLabel(label: Label) {
     if (!storyDetail) return;
-
     const isSelected = storyDetail.labels?.some((l) => l.id === label.id);
-    mutateStory(
-      {
-        ...storyDetail,
-        labels: isSelected
-          ? storyDetail.labels?.filter((l) => l.id !== label.id)
-          : [...(storyDetail.labels ?? []), label],
-      },
-      false
-    );
-
+    mutateStory({
+      ...storyDetail,
+      labels: isSelected ? storyDetail.labels?.filter((l) => l.id !== label.id) : [...(storyDetail.labels ?? []), label],
+    }, false);
     try {
       await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/labels`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ labelId: label.id }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ labelId: label.id }),
       });
-    } finally {
-      mutateStory();
-    }
+    } finally { mutateStory(); }
   }
 
   async function handleCreateAndToggleLabel(name: string, color: string) {
     if (!storyDetail) return;
     const res = await fetch(`/api/projects/${projectId}/labels`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, color }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, color }),
     });
-    if (res.ok) {
-      const newLabel: Label = await res.json();
-      mutateProjectLabels((prev) => [...(prev ?? []), newLabel], false);
-      await handleToggleLabel(newLabel);
-    }
+    if (res.ok) { const newLabel: Label = await res.json(); mutateProjectLabels((prev) => [...(prev ?? []), newLabel], false); await handleToggleLabel(newLabel); }
+  }
+
+  async function handleDeleteLabel(labelId: string) {
+    mutateProjectLabels((prev) => prev?.filter((l) => l.id !== labelId), false);
+    if (storyDetail) mutateStory({ ...storyDetail, labels: storyDetail.labels?.filter((l) => l.id !== labelId) }, false);
+    await fetch(`/api/projects/${projectId}/labels/${labelId}`, { method: "DELETE" });
   }
 
   async function handleToggleChecklist() {
     if (!storyDetail) return;
-    // If a checklist already exists, just toggle visibility
-    if ((storyDetail.checklists ?? []).length > 0) {
-      setShowChecklist((v) => !v);
-      return;
-    }
-    // No checklist yet — create one and show it
+    if ((storyDetail.checklists ?? []).length > 0) { setShowChecklist((v) => !v); return; }
     const res = await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/checklists`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
     });
-    if (res.ok) {
-      const newChecklist: Checklist = await res.json();
-      mutateStory({ ...storyDetail, checklists: [newChecklist] }, false);
-      setShowChecklist(true);
-    }
+    if (res.ok) { const newChecklist: Checklist = await res.json(); mutateStory({ ...storyDetail, checklists: [newChecklist] }, false); setShowChecklist(true); }
   }
 
   function handleUpdateChecklists(updater: (prev: Checklist[]) => Checklist[]) {
@@ -350,28 +267,12 @@ export function StoryDetailDialog({
     await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/checklists/${checklistId}`, { method: "DELETE" });
   }
 
-  async function handleDeleteLabel(labelId: string) {
-    mutateProjectLabels((prev) => prev?.filter((l) => l.id !== labelId), false);
-    if (storyDetail) {
-      mutateStory({ ...storyDetail, labels: storyDetail.labels?.filter((l) => l.id !== labelId) }, false);
-    }
-    await fetch(`/api/projects/${projectId}/labels/${labelId}`, { method: "DELETE" });
-  }
-
-  async function handleAddLink() {
-    if (!storyDetail || !newLinkTitle.trim() || !newLinkUrl.trim()) return;
+  async function handleAddLink(title: string, url: string) {
+    if (!storyDetail) return;
     const res = await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/links`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newLinkTitle.trim(), url: newLinkUrl.trim() }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, url }),
     });
-    if (res.ok) {
-      const link: StoryLink = await res.json();
-      mutateStory({ ...storyDetail, links: [...(storyDetail.links ?? []), link] }, false);
-      setNewLinkTitle("");
-      setNewLinkUrl("");
-      setIsAddingLink(false);
-    }
+    if (res.ok) { const link: StoryLink = await res.json(); mutateStory({ ...storyDetail, links: [...(storyDetail.links ?? []), link] }, false); }
   }
 
   async function handleDeleteLink(linkId: string) {
@@ -384,19 +285,9 @@ export function StoryDetailDialog({
     if (!storyDetail) return;
     setIsUploading(true);
     for (const file of files) {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(
-        `/api/projects/${projectId}/stories/${storyDetail.id}/attachments`,
-        { method: "POST", body: fd }
-      );
-      if (res.ok) {
-        const att: StoryAttachment = await res.json();
-        mutateStory(
-          { ...storyDetail, attachments: [...(storyDetail.attachments ?? []), att] },
-          false
-        );
-      }
+      const fd = new FormData(); fd.append("file", file);
+      const res = await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/attachments`, { method: "POST", body: fd });
+      if (res.ok) { const att: StoryAttachment = await res.json(); mutateStory({ ...storyDetail, attachments: [...(storyDetail.attachments ?? []), att] }, false); }
     }
     setIsUploading(false);
   }
@@ -406,169 +297,62 @@ export function StoryDetailDialog({
     const next = (storyDetail.attachments ?? []).filter((a) => a.id !== attachmentId);
     mutateStory({ ...storyDetail, attachments: next }, false);
     if (next.length === 0) setShowAttachments(false);
-    await fetch(
-      `/api/projects/${projectId}/stories/${storyDetail.id}/attachments/${attachmentId}`,
-      { method: "DELETE" }
-    );
-  }
-
-  function getFileIcon(mimeType: string) {
-    if (mimeType.startsWith("image/")) return <FileImage className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />;
-    if (mimeType === "application/pdf") return <FileText className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />;
-    return <FileIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />;
-  }
-
-  async function handleDueDateChange(date: Date | null) {
-    if (!storyDetail) return;
-
-    mutateStory(
-      { ...storyDetail, dueDate: date ? date.toISOString() : null },
-      false
-    );
-
-    try {
-      await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dueDate: date ? date.toISOString() : null }),
-      });
-    } finally {
-      mutateStory();
-    }
+    await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/attachments/${attachmentId}`, { method: "DELETE" });
   }
 
   async function handleAssignStory(userId: string | null) {
     if (!storyDetail) return;
     const assignee = userId ? projectUsers.find((u) => u.id === userId) || null : null;
-
-    mutateStory(
-      { ...storyDetail, assignee: assignee ? { name: assignee.name, email: assignee.email } : null },
-      false
-    );
-
+    mutateStory({ ...storyDetail, assignee: assignee ? { name: assignee.name, email: assignee.email } : null }, false);
     try {
       await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignee: userId }),
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assignee: userId }),
       });
-    } finally {
-      mutateStory();
-    }
+    } finally { mutateStory(); }
   }
 
-  async function handleAssignTask(taskId: string, userId: string | null) {
+  async function handleDueDateChange(date: Date | null) {
     if (!storyDetail) return;
-    const assignee = userId ? projectUsers.find((u) => u.id === userId) || null : null;
-
-    // Optimistic update
-    mutateStory(
-      { ...storyDetail, tasks: storyDetail.tasks.map((t) => t.id === taskId ? { ...t, assignee: assignee || undefined } : t) },
-      false
-    );
-
+    mutateStory({ ...storyDetail, dueDate: date ? date.toISOString() : null }, false);
     try {
-      await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigneeId: userId }),
+      await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dueDate: date ? date.toISOString() : null }),
       });
-    } finally {
-      mutateStory();
-    }
+    } finally { mutateStory(); }
   }
 
-  async function handleSaveDescription() {
+  async function handleSubmitComment(content: string, mentions: string[]) {
+    if (!story) return;
+    const response = await fetch(`/api/projects/${projectId}/stories/${story.id}/comments`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, mentions }),
+    });
+    if (response.ok) { const comment = await response.json(); mutateComments((prev) => [...(prev ?? []), comment], false); }
+  }
+
+  async function handleDuplicate() {
     if (!storyDetail) return;
-    setIsSavingDescription(true);
-    try {
-      const response = await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: editedDescription }),
-      });
-      if (response.ok) {
-        mutateStory({ ...storyDetail, description: editedDescription }, false);
-        setIsEditingDescription(false);
-      }
-    } finally {
-      setIsSavingDescription(false);
-    }
-  }
-
-  function handleStartEditingDescription() {
-    setEditedDescription(storyDetail?.description || "");
-    setIsEditingDescription(true);
-  }
-
-  async function handleAddSubtask() {
-    if (!newSubtaskTitle.trim() || !storyDetail) return;
-    try {
-      const response = await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newSubtaskTitle.trim() }),
-      });
-      if (response.ok) {
-        const newTask: Task = await response.json();
-        // Optimistic update: add task immediately without waiting for revalidation
-        mutateStory(
-          { ...storyDetail, tasks: [...storyDetail.tasks, newTask] },
-          false
-        );
-        setNewSubtaskTitle("");
-        setIsAddingSubtask(false);
-      }
-    } catch {
-      // silently fail — user can retry
-    }
-  }
-
-  async function handleToggleTaskStatus(taskId: string, currentStatus: string) {
-    if (!storyDetail) return;
-    const newStatus = currentStatus === "DONE" ? "TODO" : "DONE";
-
-    // Optimistic update
-    mutateStory(
-      { ...storyDetail, tasks: storyDetail.tasks.map((t) => t.id === taskId ? { ...t, status: newStatus } : t) },
-      false
-    );
-
-    try {
-      await fetch(`/api/projects/${projectId}/stories/${storyDetail.id}/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-    } finally {
-      mutateStory();
-    }
+    await fetch(`/api/projects/${projectId}/stories`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: `${storyDetail.title} (copie)`, description: storyDetail.description, type: storyDetail.type, status: "BACKLOG", priority: storyDetail.priority }),
+    });
+    onOpenChange(false);
   }
 
   const displayStory = storyDetail || story;
   if (!displayStory) return null;
-
-  const completedTasks = storyDetail?.tasks.filter((t) => t.status === "DONE").length || 0;
-  const totalTasks = storyDetail?.tasks.length || 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="!max-w-none w-full h-full rounded-none md:rounded-lg md:w-[60vw] md:h-[90vh] overflow-hidden flex flex-col p-0 gap-0" showCloseButton={false}>
         {/* Header */}
         <DialogHeader className="px-4 md:px-6 py-4 border-b flex flex-row items-center justify-between">
-          <DialogTitle className="sr-only">
-            Détails de la story {displayStory.title}
-          </DialogTitle>
+          <DialogTitle className="sr-only">Détails de la story {displayStory.title}</DialogTitle>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="font-mono">{displayStory.type}-{displayStory.storyNumber}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
-              <Edit3 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}><Edit3 className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}><X className="h-4 w-4" /></Button>
           </div>
         </DialogHeader>
 
@@ -580,64 +364,29 @@ export function StoryDetailDialog({
           <div className="flex-1 overflow-y-auto md:overflow-hidden md:flex">
             {/* Main Content */}
             <div className="p-4 md:p-6 space-y-6 md:flex-1 md:overflow-y-auto">
-              {/* Title */}
               <h1 className="text-2xl font-semibold">{displayStory.title}</h1>
 
-              {/* Description - Editable Inline */}
+              {/* Description */}
               <div className="space-y-3">
                 {isEditingDescription ? (
                   <div className="space-y-3">
-                    <RichTextEditor
-                      value={editedDescription}
-                      onChange={setEditedDescription}
-                      placeholder="Décrivez la story..."
-                      variant="borderless"
-                    />
+                    <RichTextEditor value={editedDescription} onChange={setEditedDescription} placeholder="Décrivez la story..." variant="borderless" />
                     <div className="flex items-center justify-end gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setIsEditingDescription(false)}
-                        disabled={isSavingDescription}
-                      >
-                        Annuler
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        onClick={handleSaveDescription}
-                        disabled={isSavingDescription}
-                      >
-                        {isSavingDescription ? (
-                          <>
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                            Enregistrement...
-                          </>
-                        ) : (
-                          "Enregistrer"
-                        )}
+                      <Button variant="outline" size="sm" onClick={() => setIsEditingDescription(false)} disabled={isSavingDescription}>Annuler</Button>
+                      <Button size="sm" onClick={handleSaveDescription} disabled={isSavingDescription}>
+                        {isSavingDescription ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Enregistrement...</> : "Enregistrer"}
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {storyDetail?.description ? (
-                      <div 
-                        className="text-sm text-muted-foreground prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(storyDetail.description) }}
-                      />
+                      <div className="text-sm text-muted-foreground prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(storyDetail.description) }} />
                     ) : (
-                      <p className="text-sm text-muted-foreground italic">
-                        Aucune description
-                      </p>
+                      <p className="text-sm text-muted-foreground italic">Aucune description</p>
                     )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-xs" 
-                      onClick={handleStartEditingDescription}
-                    >
-                      <Edit3 className="h-3 w-3 mr-1" />
-                      Modifier la description
+                    <Button variant="outline" size="sm" className="text-xs" onClick={() => { setEditedDescription(storyDetail?.description || ""); setIsEditingDescription(true); }}>
+                      <Edit3 className="h-3 w-3 mr-1" />Modifier la description
                     </Button>
                   </div>
                 )}
@@ -649,14 +398,7 @@ export function StoryDetailDialog({
                   <Separator />
                   <div className="space-y-6">
                     {(storyDetail?.checklists ?? []).map((checklist) => (
-                      <ChecklistSection
-                        key={checklist.id}
-                        checklist={checklist}
-                        projectId={projectId}
-                        storyId={storyDetail!.id}
-                        onUpdate={handleUpdateChecklists}
-                        onDelete={handleDeleteChecklist}
-                      />
+                      <ChecklistSection key={checklist.id} checklist={checklist} projectId={projectId} storyId={storyDetail!.id} onUpdate={handleUpdateChecklists} onDelete={handleDeleteChecklist} />
                     ))}
                   </div>
                 </>
@@ -664,163 +406,15 @@ export function StoryDetailDialog({
 
               <Separator />
 
-              {/* Sub-tasks */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium flex items-center gap-2">
-                    <CheckSquare className="h-4 w-4" />
-                    Sous-tâches
-                    <span className="text-muted-foreground">
-                      {completedTasks}/{totalTasks}
-                    </span>
-                  </h3>
-                </div>
-
-                <div className="space-y-1">
-                  {storyDetail?.tasks.map((task, index) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 group"
-                    >
-                      <span className="text-xs text-muted-foreground font-mono w-6">
-                        {index + 1}
-                      </span>
-                      <button 
-                        className="flex-shrink-0 cursor-pointer"
-                        onClick={() => handleToggleTaskStatus(task.id, task.status)}
-                      >
-                        {getStatusIcon(task.status)}
-                      </button>
-                      <span className={cn(
-                        "flex-1 text-sm",
-                        task.status === "DONE" && "line-through text-muted-foreground"
-                      )}>
-                        {task.title}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {/* Assignee Button with Dropdown */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7 relative"
-                              title={task.assignee ? `Assigné à ${task.assignee.name || task.assignee.email}` : "Assigner"}
-                            >
-                              {task.assignee ? (
-                                <UserAvatar name={task.assignee.name} email={task.assignee.email} avatarUrl={task.assignee.avatarUrl} size="xs" />
-                              ) : (
-                                <User className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuItem onClick={() => handleAssignTask(task.id, null)}>
-                              <Circle className="h-4 w-4 mr-2 text-slate-400" />
-                              Non assigné
-                            </DropdownMenuItem>
-                            <Separator className="my-1" />
-                            {isLoadingUsers ? (
-                              <DropdownMenuItem disabled>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Chargement...
-                              </DropdownMenuItem>
-                            ) : (
-                              projectUsers.map((user) => (
-                                <DropdownMenuItem 
-                                  key={user.id} 
-                                  onClick={() => handleAssignTask(task.id, user.id)}
-                                  className={cn(
-                                    task.assignee?.id === user.id && "bg-accent"
-                                  )}
-                                >
-                                  <UserAvatar name={user.name} email={user.email} avatarUrl={user.avatarUrl} size="xs" className="mr-2" />
-                                  {user.name || user.email}
-                                  {task.assignee?.id === user.id && <Check className="h-3 w-3 ml-auto" />}
-                                </DropdownMenuItem>
-                              ))
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        {/* More Actions */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <FileText className="h-4 w-4 mr-2" />
-                              Détacher et convertir en story
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <FolderOpen className="h-4 w-4 mr-2" />
-                              Changer de story parent
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              <Archive className="h-4 w-4 mr-2" />
-                              Détacher et archiver
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ))}
-                  {storyDetail && storyDetail.tasks.length === 0 && (
-                    <p className="text-sm text-muted-foreground italic py-2">
-                      Aucune sous-tâche
-                    </p>
-                  )}
-                </div>
-
-                {/* Add Subtask Inline */}
-                {isAddingSubtask ? (
-                  <div className="flex items-center gap-2 p-2">
-                    <span className="text-xs text-muted-foreground font-mono w-6">
-                      {(totalTasks || 0) + 1}
-                    </span>
-                    <Circle className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                    <Input
-                      autoFocus
-                      placeholder="Nouvelle sous-tâche..."
-                      value={newSubtaskTitle}
-                      onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleAddSubtask();
-                        if (e.key === "Escape") {
-                          setIsAddingSubtask(false);
-                          setNewSubtaskTitle("");
-                        }
-                      }}
-                      className="flex-1 h-8 text-sm"
-                    />
-                    <Button size="sm" onClick={handleAddSubtask} disabled={!newSubtaskTitle.trim()}>
-                      Ajouter
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => {
-                        setIsAddingSubtask(false);
-                        setNewSubtaskTitle("");
-                      }}
-                    >
-                      Annuler
-                    </Button>
-                  </div>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-xs"
-                    onClick={() => setIsAddingSubtask(true)}
-                  >
-                    + Sous-tâche
-                  </Button>
-                )}
-              </div>
+              {/* Subtasks */}
+              <StoryDetailSubtasks
+                tasks={storyDetail?.tasks ?? []}
+                projectUsers={projectUsers}
+                isLoadingUsers={isLoadingUsers}
+                onToggleStatus={handleToggleTaskStatus}
+                onAssign={handleAssignTask}
+                onAdd={handleAddSubtask}
+              />
 
               <Separator />
 
@@ -828,253 +422,50 @@ export function StoryDetailDialog({
               <div className="space-y-2">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Add to Story</h3>
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "text-xs",
-                      showChecklist && "border-primary text-primary"
-                    )}
-                    onClick={handleToggleChecklist}
-                    disabled={!storyDetail}
-                  >
-                    <ListChecks className="h-3 w-3 mr-1" />
-                    Checklist
+                  <Button type="button" variant="outline" size="sm" className={cn("text-xs", showChecklist && "border-primary text-primary")} onClick={handleToggleChecklist} disabled={!storyDetail}>
+                    <ListChecks className="h-3 w-3 mr-1" />Checklist
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn("text-xs", showLinks && "border-primary text-primary")}
-                    onClick={() => { setShowLinks((v) => !v); if (!showLinks) setIsAddingLink(false); }}
-                    disabled={!storyDetail}
-                  >
-                    <Link2 className="h-3 w-3 mr-1" />
-                    Liens externes
+                  <Button type="button" variant="outline" size="sm" className={cn("text-xs", showLinks && "border-primary text-primary")} onClick={() => { setShowLinks((v) => !v); }} disabled={!storyDetail}>
+                    <Link2 className="h-3 w-3 mr-1" />Liens externes
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn("text-xs", showAttachments && "border-primary text-primary")}
-                    onClick={() => setShowAttachments((v) => !v)}
-                    disabled={!storyDetail}
-                  >
-                    <Paperclip className="h-3 w-3 mr-1" />
-                    Pièces jointes
+                  <Button type="button" variant="outline" size="sm" className={cn("text-xs", showAttachments && "border-primary text-primary")} onClick={() => setShowAttachments((v) => !v)} disabled={!storyDetail}>
+                    <Paperclip className="h-3 w-3 mr-1" />Pièces jointes
                   </Button>
                 </div>
               </div>
 
-              {/* Pièces jointes Section */}
               {showAttachments && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium flex items-center gap-2">
-                    <Paperclip className="h-4 w-4" />
-                    Pièces jointes
-                    {(storyDetail?.attachments ?? []).length > 0 && (
-                      <span className="text-xs text-muted-foreground font-normal">
-                        {(storyDetail?.attachments ?? []).length}
-                      </span>
-                    )}
-                    {isUploading && (
-                      <span className="text-xs text-muted-foreground animate-pulse">Envoi...</span>
-                    )}
-                  </h3>
-                  <div className="space-y-1">
-                    {(storyDetail?.attachments ?? []).map((att) => (
-                      <div
-                        key={att.id}
-                        className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/40"
-                      >
-                        {getFileIcon(att.mimeType)}
-                        <a
-                          href={att.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 text-sm truncate hover:underline"
-                        >
-                          {att.filename}
-                        </a>
-                        <span className="text-xs text-muted-foreground flex-shrink-0">
-                          {formatFileSize(att.size)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteAttachment(att.id)}
-                          className="text-muted-foreground hover:text-destructive cursor-pointer"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <Dropzone
-                    onFilesAdded={handleFilesAdded}
-                    maxSize={10 * 1024 * 1024}
-                    disabled={isUploading || !storyDetail}
-                  />
-                </div>
+                <StoryAttachments
+                  isEditMode={true}
+                  attachments={storyDetail?.attachments ?? []}
+                  localFiles={[]}
+                  isUploading={isUploading}
+                  onDeleteAttachment={handleDeleteAttachment}
+                  onDeleteLocalFile={() => {}}
+                  onFilesAdded={handleFilesAdded}
+                />
               )}
 
-              {/* Liens externes Section */}
               {showLinks && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium flex items-center gap-2">
-                    <Link2 className="h-4 w-4" />
-                    Liens externes
-                    {(storyDetail?.links ?? []).length > 0 && (
-                      <span className="text-xs text-muted-foreground font-normal">
-                        {(storyDetail?.links ?? []).length}
-                      </span>
-                    )}
-                  </h3>
-                  <div className="space-y-1">
-                    {(storyDetail?.links ?? []).map((link) => (
-                      <div key={link.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/40 group">
-                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <a
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 text-sm text-primary hover:underline truncate"
-                        >
-                          {link.title}
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteLink(link.id)}
-                          className="text-muted-foreground hover:text-destructive cursor-pointer"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  {isAddingLink ? (
-                    <div className="space-y-2 pl-1">
-                      <Input
-                        autoFocus
-                        placeholder="Titre du lien..."
-                        value={newLinkTitle}
-                        onChange={(e) => setNewLinkTitle(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Escape") { setIsAddingLink(false); setNewLinkTitle(""); setNewLinkUrl(""); } }}
-                        className="h-8 text-sm"
-                      />
-                      <Input
-                        placeholder="https://..."
-                        value={newLinkUrl}
-                        onChange={(e) => setNewLinkUrl(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleAddLink();
-                          if (e.key === "Escape") { setIsAddingLink(false); setNewLinkTitle(""); setNewLinkUrl(""); }
-                        }}
-                        className="h-8 text-sm"
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={!newLinkTitle.trim() || !newLinkUrl.trim()}
-                          onClick={handleAddLink}
-                        >
-                          Ajouter
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={() => { setIsAddingLink(false); setNewLinkTitle(""); setNewLinkUrl(""); }}
-                        >
-                          Annuler
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-muted-foreground"
-                      onClick={() => setIsAddingLink(true)}
-                    >
-                      + Ajouter un lien
-                    </Button>
-                  )}
-                </div>
+                <StoryLinks
+                  links={storyDetail?.links ?? []}
+                  onDelete={handleDeleteLink}
+                  onAdd={handleAddLink}
+                />
               )}
 
               <Separator />
 
               {/* Comments */}
-              <div ref={commentsRef} className="space-y-3">
-                <h3 className="text-sm font-medium flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
-                  Commentaires
-                  <span className="text-muted-foreground">({comments.length})</span>
-                </h3>
-                
-                {/* Existing Comments */}
-                {isLoadingComments ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : comments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic py-2">
-                    Aucun commentaire
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="flex items-start gap-3">
-                        <UserAvatar name={comment.author.name} email={comment.author.email} avatarUrl={comment.author.avatarUrl} size="md" />
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">
-                              {comment.author.name || comment.author.email}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(comment.createdAt)}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                            {comment.content}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {/* Add Comment */}
-                <div className="flex items-start gap-3 pt-2">
-                  <UserAvatar name={currentUserName} avatarUrl={currentUserAvatarUrl} size="md" />
-                  <div className="flex-1">
-                    <MentionTextarea
-                      placeholder="Ajouter un commentaire... Utilisez @ pour mentionner"
-                      value={newComment}
-                      onChange={setNewComment}
-                      users={projectUsers}
-                    />
-                    <div className="flex justify-end mt-2">
-                      <Button 
-                        size="sm" 
-                        className="text-xs"
-                        onClick={handleSubmitComment}
-                        disabled={isSubmittingComment || !newComment.trim()}
-                      >
-                        {isSubmittingComment ? (
-                          <>
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                            Envoi...
-                          </>
-                        ) : (
-                          "Commenter"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+              <div ref={commentsRef}>
+                <StoryComments
+                  comments={comments}
+                  isLoading={isLoadingComments}
+                  projectUsers={projectUsers}
+                  currentUserName={currentUserName}
+                  currentUserAvatarUrl={currentUserAvatarUrl}
+                  onSubmit={handleSubmitComment}
+                />
               </div>
 
               <Separator />
@@ -1090,233 +481,41 @@ export function StoryDetailDialog({
                   <div>
                     <span className="font-medium">{storyDetail?.author?.name || storyDetail?.author?.email}</span>
                     {" "}a créé cette story dans{" "}
-                    <Badge variant="secondary" className="text-xs">
-                      {getStatusLabel(storyDetail?.status || "BACKLOG")}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {storyDetail?.createdAt && formatDate(storyDetail.createdAt)}
-                    </p>
+                    <Badge variant="secondary" className="text-xs">{getStatusLabel(storyDetail?.status || "BACKLOG")}</Badge>
+                    <p className="text-xs text-muted-foreground mt-1">{storyDetail?.createdAt && formatDate(storyDetail.createdAt)}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Right Sidebar */}
-            <div className="border-t md:border-t-0 md:border-l bg-muted/20 p-4 space-y-4 md:w-72 md:overflow-y-auto">
-              {/* Story ID */}
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Story ID</label>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-muted px-2 py-1 rounded text-sm font-mono truncate">
-                    {displayStory.type}-{displayStory.storyNumber}
-                  </code>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-7 w-7 relative"
-                    title={copied ? "Copié!" : "Copier"}
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${displayStory.type}-${displayStory.storyNumber}`);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }}
-                  >
-                    {copied ? <CopyCheck className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7">
-                        <MoreHorizontal className="h-3 w-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => {
-                        // Duplicate story logic
-                        if (storyDetail) {
-                          fetch(`/api/projects/${projectId}/stories`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              title: `${storyDetail.title} (copie)`,
-                              description: storyDetail.description,
-                              type: storyDetail.type,
-                              status: "BACKLOG",
-                              priority: storyDetail.priority,
-                            }),
-                          }).then(() => onOpenChange(false));
-                        }
-                      }}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Dupliquer la story
-                      </DropdownMenuItem>
-                      {storyDetail?.status === "ARCHIVED" ? (
-                        <DropdownMenuItem 
-                          onClick={() => setShowRestoreConfirm(true)}
-                        >
-                          <ArchiveRestore className="h-4 w-4 mr-2" />
-                          Restaurer la story
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={() => setShowArchiveConfirm(true)}
-                        >
-                          <Archive className="h-4 w-4 mr-2" />
-                          Archiver la story
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              {/* Permalink */}
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Permalink</label>
-                <div className="flex items-center gap-2">
-                  <Link2 className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground truncate flex-1">
-                    projet360.ca/story/{displayStory.type}-{displayStory.storyNumber}
-                  </span>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Metadata Fields */}
-              <div className="space-y-3">
-                {/* State */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <GitBranch className="h-3 w-3" />
-                    Statut
-                  </label>
-                  <Badge variant="outline" className="font-normal">
-                    {getStatusLabel(storyDetail?.status || "BACKLOG")}
-                  </Badge>
-                </div>
-
-                {/* Type */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Tag className="h-3 w-3" />
-                    Type
-                  </label>
-                  <div className="text-sm">{displayStory.type === "FEATURE" ? "Feature" : "Fix"}</div>
-                </div>
-
-                {/* Priority */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Flag className="h-3 w-3" />
-                    Priorité
-                  </label>
-                  <div className="text-sm">{getPriorityLabel(storyDetail?.priority || 2)}</div>
-                </div>
-
-                {/* Assignee */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <User className="h-3 w-3" />
-                    Assigné à
-                  </label>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="w-full justify-start h-auto py-1.5 px-2 -ml-2 font-normal">
-                        {storyDetail?.assignee ? (
-                          <div className="flex items-center gap-2">
-                            <UserAvatar name={storyDetail.assignee.name} email={storyDetail.assignee.email} avatarUrl={storyDetail.assignee.avatarUrl} size="xs" />
-                            <span className="text-sm">{storyDetail.assignee.name || storyDetail.assignee.email}</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground italic">Non assigné</span>
-                        )}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuItem onClick={() => handleAssignStory(null)}>
-                        <span className="text-muted-foreground">Non assigné</span>
-                        {!storyDetail?.assignee && <Check className="h-3 w-3 ml-auto" />}
-                      </DropdownMenuItem>
-                      {projectUsers.map((u) => (
-                        <DropdownMenuItem key={u.id} onClick={() => handleAssignStory(u.id)}>
-                          <div className="flex items-center gap-2 flex-1">
-                            <UserAvatar name={u.name} email={u.email} avatarUrl={u.avatarUrl} size="xs" />
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-sm truncate">{u.name || u.email}</span>
-                              {u.name && <span className="text-xs text-muted-foreground truncate">{u.email}</span>}
-                            </div>
-                          </div>
-                          {storyDetail?.assignee?.email === u.email && <Check className="h-3 w-3 ml-auto flex-shrink-0" />}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                {/* Labels */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Tag className="h-3 w-3" />
-                    Labels
-                  </label>
-                  <LabelSelector
-                    projectId={projectId}
-                    selectedLabels={storyDetail?.labels ?? []}
-                    projectLabels={projectLabels}
-                    onToggle={handleToggleLabel}
-                    onCreateAndToggle={isAdmin ? handleCreateAndToggleLabel : undefined}
-                    onDelete={isAdmin ? handleDeleteLabel : undefined}
-                  />
-                </div>
-
-                {/* Due date */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    Date d'échéance
-                  </label>
-                  <DatePicker
-                    value={storyDetail?.dueDate ? new Date(storyDetail.dueDate) : null}
-                    onChange={handleDueDateChange}
-                    placeholder="Pas de date"
-                  />
-                </div>
-
-                {/* Requester */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <User className="h-3 w-3" />
-                    Demandeur
-                  </label>
-                  <div className="text-sm">
-                    {storyDetail?.author ? (
-                      <div className="flex items-center gap-2">
-                        <UserAvatar name={storyDetail.author.name} email={storyDetail.author.email} avatarUrl={storyDetail.author.avatarUrl} size="xs" />
-                        <span>{storyDetail.author.name || storyDetail.author.email}</span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Created */}
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    Créée le
-                  </label>
-                  <div className="text-sm">
-                    {storyDetail?.createdAt ? formatDate(storyDetail.createdAt) : "-"}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <StoryDetailSidebar
+              projectId={projectId}
+              displayStory={displayStory}
+              status={storyDetail?.status}
+              priority={storyDetail?.priority}
+              assignee={storyDetail?.assignee}
+              author={storyDetail?.author}
+              dueDate={storyDetail?.dueDate}
+              createdAt={storyDetail?.createdAt}
+              labels={storyDetail?.labels ?? []}
+              projectUsers={projectUsers}
+              projectLabels={projectLabels}
+              isAdmin={isAdmin}
+              isArchived={storyDetail?.status === "ARCHIVED"}
+              onAssign={handleAssignStory}
+              onDueDateChange={handleDueDateChange}
+              onToggleLabel={handleToggleLabel}
+              onCreateAndToggleLabel={handleCreateAndToggleLabel}
+              onDeleteLabel={handleDeleteLabel}
+              onDuplicate={handleDuplicate}
+              onArchive={() => setShowArchiveConfirm(true)}
+              onRestore={() => setShowRestoreConfirm(true)}
+            />
           </div>
         )}
 
-        {/* Archive Confirmation Dialog */}
+        {/* Archive Confirmation */}
         <Dialog open={showArchiveConfirm} onOpenChange={setShowArchiveConfirm}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -1326,44 +525,24 @@ export function StoryDetailDialog({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => setShowArchiveConfirm(false)}
-                disabled={isArchiving}
-              >
-                Annuler
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={async () => {
-                  if (!story?.id) return;
-                  setIsArchiving(true);
-                  try {
-                    const response = await fetch(`/api/projects/${projectId}/stories/${story.id}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ status: "ARCHIVED" }),
-                    });
-                    if (response.ok) {
-                      setShowArchiveConfirm(false);
-                      onOpenChange(false);
-                      mutateStory();
-                    }
-                  } catch {
-                    // silently fail — user can retry
-                  } finally {
-                    setIsArchiving(false);
-                  }
-                }}
-                disabled={isArchiving}
-              >
+              <Button variant="outline" onClick={() => setShowArchiveConfirm(false)} disabled={isArchiving}>Annuler</Button>
+              <Button variant="destructive" disabled={isArchiving} onClick={async () => {
+                if (!story?.id) return;
+                setIsArchiving(true);
+                try {
+                  const response = await fetch(`/api/projects/${projectId}/stories/${story.id}`, {
+                    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "ARCHIVED" }),
+                  });
+                  if (response.ok) { setShowArchiveConfirm(false); onOpenChange(false); mutateStory(); }
+                } catch { /* silently fail */ } finally { setIsArchiving(false); }
+              }}>
                 {isArchiving ? "Archivage..." : "Archiver"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* Restore Confirmation Dialog */}
+        {/* Restore Confirmation */}
         <Dialog open={showRestoreConfirm} onOpenChange={setShowRestoreConfirm}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -1373,36 +552,17 @@ export function StoryDetailDialog({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={() => setShowRestoreConfirm(false)}
-                disabled={isRestoring}
-              >
-                Annuler
-              </Button>
-              <Button
-                onClick={async () => {
-                  if (!story?.id) return;
-                  setIsRestoring(true);
-                  try {
-                    const response = await fetch(`/api/projects/${projectId}/stories/${story.id}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ status: "BACKLOG" }),
-                    });
-                    if (response.ok) {
-                      setShowRestoreConfirm(false);
-                      onOpenChange(false);
-                      mutateStory();
-                    }
-                  } catch {
-                    // silently fail — user can retry
-                  } finally {
-                    setIsRestoring(false);
-                  }
-                }}
-                disabled={isRestoring}
-              >
+              <Button variant="outline" onClick={() => setShowRestoreConfirm(false)} disabled={isRestoring}>Annuler</Button>
+              <Button disabled={isRestoring} onClick={async () => {
+                if (!story?.id) return;
+                setIsRestoring(true);
+                try {
+                  const response = await fetch(`/api/projects/${projectId}/stories/${story.id}`, {
+                    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "BACKLOG" }),
+                  });
+                  if (response.ok) { setShowRestoreConfirm(false); onOpenChange(false); mutateStory(); }
+                } catch { /* silently fail */ } finally { setIsRestoring(false); }
+              }}>
                 {isRestoring ? "Restauration..." : "Restaurer"}
               </Button>
             </DialogFooter>

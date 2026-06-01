@@ -14,6 +14,7 @@ async function checkRateLimit(
   limiter: typeof authLimiter,
   key: string
 ): Promise<NextResponse | null> {
+  if (!limiter) return null;
   const { success, limit, remaining, reset } = await limiter.limit(key);
   if (!success) {
     return NextResponse.json(
