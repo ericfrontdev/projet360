@@ -156,7 +156,7 @@ model SuperAdminInvitation {
 
 model Story {
   id          String      @id @default(uuid())
-  storyNumber Int         @default(autoincrement()) // Numéro unique par projet (FEATURE-1, FIX-1)
+  storyNumber Int         // Numéro séquentiel par projet ET par type (FEATURE-1, FIX-1) — calculé applicativement
   title       String
   description String?
   status      StoryStatus @default(BACKLOG)
@@ -183,7 +183,7 @@ model Story {
   checklists  Checklist[]
   links       StoryLink[]
   
-  @@unique([projectId, storyNumber])
+  @@unique([projectId, type, storyNumber])
   @@index([projectId, status, createdAt(sort: Desc)])
   @@map("stories")
 }
