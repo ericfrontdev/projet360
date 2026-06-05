@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { validateBody, createStorySchema } from "@/lib/schemas";
-import { StoryStatus } from "@prisma/client";
+import { StoryStatus, StoryType } from "@prisma/client";
 import { getProjectAccess } from "@/lib/project-access";
 
 const TAKE_DEFAULT = 50;
@@ -138,24 +138,39 @@ export async function POST(
       });
     }
 
-    const story = await prisma.story.create({
-      data: {
-        title,
-        description: description ?? null,
-        status,
-        ...(type !== undefined && { type }),
-        ...(priority !== undefined && { priority }),
-        ...(assigneeId ? { assigneeId } : {}),
-        ...(dueDate !== undefined && { dueDate: dueDate ?? null }),
-        ...(labelIds.length > 0 && { labels: { connect: labelIds.map((id) => ({ id })) } }),
-        projectId,
-        authorId: user.id,
-      },
-      include: {
-        assignee: {
-          select: { id: true, name: true, email: true, avatarUrl: true },
+    // Numéro séquentiel par projet ET par type (FEATURE-1, FIX-1).
+    // Calculé dans une transaction pour éviter les collisions sur la contrainte
+    // unique [projectId, type, storyNumber] lors de créations concurrentes.
+    const effectiveType = type ?? StoryType.FEATURE;
+
+    const story = await prisma.$transaction(async (tx) => {
+      const lastStory = await tx.story.findFirst({
+        where: { projectId, type: effectiveType },
+        orderBy: { storyNumber: "desc" },
+        select: { storyNumber: true },
+      });
+      const storyNumber = (lastStory?.storyNumber ?? 0) + 1;
+
+      return tx.story.create({
+        data: {
+          storyNumber,
+          type: effectiveType,
+          title,
+          description: description ?? null,
+          status,
+          ...(priority !== undefined && { priority }),
+          ...(assigneeId ? { assigneeId } : {}),
+          ...(dueDate !== undefined && { dueDate: dueDate ?? null }),
+          ...(labelIds.length > 0 && { labels: { connect: labelIds.map((id) => ({ id })) } }),
+          projectId,
+          authorId: user.id,
         },
-      },
+        include: {
+          assignee: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
+        },
+      });
     });
 
     return NextResponse.json(story, { status: 201 });
